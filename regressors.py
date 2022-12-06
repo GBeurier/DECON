@@ -327,8 +327,8 @@ def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *,
 
 
 def ml_list(SEED, X_test, y_test):
+    # ml_models = [(PLSRegression(nc, max_iter=5000), "PLS" + str(nc)) for nc in range(4, 12, 4)] # test
     ml_models = [(PLSRegression(nc, max_iter=5000), "PLS" + str(nc)) for nc in range(4, 100, 4)]
-
     ml_models.append((XGBRegressor(seed=SEED), 'XGBoost_100_None'))
     ml_models.append((XGBRegressor(n_estimators=200, max_depth=50, seed=SEED), 'XGBoost_200_10'))
     ml_models.append((XGBRegressor(n_estimators=50, max_depth=100, seed=SEED), 'XGBoost_50_100'))

@@ -61,28 +61,26 @@ def decon_set():
     return preprocessing
 
 
-def transform_test_data(preprocessing, X_train, y_train, X_test, y_test):
+def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="augmentation"):
     y_scaler = MinMaxScaler()
     y_scaler.fit(y_train.reshape((-1, 1)))
     y_valid = y_scaler.transform(y_test.reshape((-1, 1)))
 
-    transformer_pipeline = Pipeline([
-        ('scaler', MinMaxScaler()),
-        ('preprocessing', FeatureAugmentation(preprocessing())),
-    ])
+    if type == "augmentation":
+        transformer_pipeline = Pipeline([
+            ('scaler', MinMaxScaler()),
+            ('preprocessing', FeatureAugmentation(preprocessing())),
+        ])
+    else:
+        transformer_pipeline = Pipeline([
+            ('scaler', MinMaxScaler()),
+            ('preprocessing', FeatureUnion(preprocessing())),
+        ])
 
     transformer_pipeline.fit(X_train)
     X_valid = transformer_pipeline.transform(X_test)
 
     return X_valid, y_valid, transformer_pipeline, y_scaler
-
-
-def ml_transformer_pipeline(preprocessing):
-    transformer_pipeline = Pipeline([
-        ('scaler', MinMaxScaler()),
-        ('preprocessing', FeatureUnion(preprocessing())),
-    ])
-    return transformer_pipeline
 
 
 def preprocessing_list():

@@ -42,8 +42,7 @@ class LWPLS(BaseEstimator, RegressorMixin):
     def fit(self, X, y):
         X, y = check_X_y(X, y)
         y = np.reshape(y, (len(y), 1))
-        X_test = np.reshape(self.X_test, self.X_test.shape[0:2])
-
+        X_test = self.X_test
         nb_test_samples = X_test.shape[0]
         estimated_y_test = np.zeros((nb_test_samples, self.max_component_number))
         distance_matrix = cdist(X, X_test, 'euclidean')
