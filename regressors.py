@@ -224,6 +224,28 @@ def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
     res = tf.cast(res, tf.float16)
     return x + res
 
+def transformer_vg(
+    meta,
+    head_size=16,
+    num_heads=2,
+    ff_dim=8,
+    num_transformer_blocks=1,
+    mlp_units=[8],
+    dropout=0.05,
+    mlp_dropout=0.1,
+):
+    input_shape = meta["X_shape_"][1:]
+    inputs = Input(shape=input_shape)
+    x = inputs
+    for _ in range(num_transformer_blocks):
+        x = transformer_encoder(x, head_size, num_heads, ff_dim, dropout)
+
+    x = GlobalAveragePooling1D(data_format="channels_first")(x)
+    for dim in mlp_units:
+        x = Dense(dim, activation="relu")(x)
+        x = Dropout(mlp_dropout)(x)
+    outputs = Dense(1, activation="sigmoid")(x)
+    return Model(inputs, outputs)
 
 def transformer(
     meta,
@@ -231,6 +253,30 @@ def transformer(
     num_heads=2,
     ff_dim=4,
     num_transformer_blocks=2,
+    mlp_units=[32],
+    dropout=0.05,
+    mlp_dropout=0.1,
+):
+    input_shape = meta["X_shape_"][1:]
+    inputs = Input(shape=input_shape)
+    x = inputs
+    for _ in range(num_transformer_blocks):
+        x = transformer_encoder(x, head_size, num_heads, ff_dim, dropout)
+
+    x = GlobalAveragePooling1D(data_format="channels_first")(x)
+    for dim in mlp_units:
+        x = Dense(dim, activation="relu")(x)
+        x = Dropout(mlp_dropout)(x)
+    outputs = Dense(1, activation="sigmoid")(x)
+    return Model(inputs, outputs)
+
+
+def transformer_max(
+    meta,
+    head_size=64,
+    num_heads=4,
+    ff_dim=8,
+    num_transformer_blocks=4,
     mlp_units=[32],
     dropout=0.05,
     mlp_dropout=0.1,
@@ -265,8 +311,8 @@ class Auto_Save(Callback):
             # print("Best so far >", self.best)
 
     def on_train_end(self, logs=None):
-        if self.params['verbose'] == 2:
-            print('\nSaved best {0:6.4f} at epoch'.format(self.best), self.best_epoch, '\n')
+        # if self.params['verbose'] == 2:
+        print('\nSaved best {0:6.4f} at epoch'.format(self.best), self.best_epoch, '\n')
         self.model.set_weights(Auto_Save.best_weights)
 
 
@@ -276,7 +322,7 @@ class Print_LR(Callback):
         # lr = clr(iteration).numpy()
         lr = self.model.optimizer.learning_rate
         if self.params['verbose'] == 2:
-            print("Iteration {} - Learning rate: {}".format(iteration, lr) )
+            print("Iteration {} - Learning rate: {}".format(iteration, lr))
 
 
 def scale_fn(x):
@@ -302,20 +348,29 @@ def clr(epoch):
 
 
 def nn_list():
-    return [bacon, decon, transformer]
+    return [transformer_vg, transformer]
+    # return [bacon, decon, transformer]
     # return [bacon, bacon_vg, decon, decon_layer, transformer, xception1D]
 
 
 def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *, verbose=2, seed=0):
-    early_stop = EarlyStopping(monitor='val_loss', patience=250, verbose=0, mode='min') 
+    early_stop = EarlyStopping(monitor='val_loss', patience=256, verbose=0, mode='min') 
     log_dir = "logs/fit/"+run_name+"/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
-    callbacks = [Auto_Save(), early_stop, lrScheduler, tensorboard_callback]
+    callbacks = [Auto_Save(), early_stop, tensorboard_callback, lrScheduler]
+    if model_func == transformer_vg:
+        batch_size = 500
+        # callbacks = callbacks[:-1]
+
     if model_func == transformer:
         batch_size = 100
+        # callbacks = callbacks[:-1]
+
+    if model_func == transformer_vg:
+        batch_size = 10
         callbacks = callbacks[:-1]
-        print(callbacks)
+
     k_regressor = KerasRegressor(
         model=model_func,
         loss='mean_squared_error', metrics=['mse'],
@@ -333,14 +388,14 @@ def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *,
 def ml_list(SEED, X_test, y_test):
     # ml_models = [(PLSRegression(nc, max_iter=5000), "PLS" + str(nc)) for nc in range(4, 12, 4)] # test
     ml_models = [(PLSRegression(nc, max_iter=5000), "PLS" + str(nc)) for nc in range(4, 100, 4)]
-    ml_models.append((XGBRegressor(seed=SEED), 'XGBoost_100_None'))
-    ml_models.append((XGBRegressor(n_estimators=200, max_depth=50, seed=SEED), 'XGBoost_200_10'))
-    ml_models.append((XGBRegressor(n_estimators=50, max_depth=100, seed=SEED), 'XGBoost_50_100'))
-    ml_models.append((XGBRegressor(n_estimators=200, seed=SEED), 'XGBoost_200_'))
-    ml_models.append((XGBRegressor(n_estimators=400, max_depth=100, seed=SEED), 'XGBoost_400_100'))
+    # ml_models.append((XGBRegressor(seed=SEED), 'XGBoost_100_None'))
+    # ml_models.append((XGBRegressor(n_estimators=200, max_depth=50, seed=SEED), 'XGBoost_200_10'))
+    # ml_models.append((XGBRegressor(n_estimators=50, max_depth=100, seed=SEED), 'XGBoost_50_100'))
+    # ml_models.append((XGBRegressor(n_estimators=200, seed=SEED), 'XGBoost_200_'))
+    # ml_models.append((XGBRegressor(n_estimators=400, max_depth=100, seed=SEED), 'XGBoost_400_100'))
 
-    ml_models.append((LWPLS(2, 2 ** -2, X_test, y_test), "LWPLS_2_0.25"))
-    ml_models.append((LWPLS(16, 2 ** -2, X_test, y_test), "LWPLS_16_0.25"))
+    # ml_models.append((LWPLS(2, 2 ** -2, X_test, y_test), "LWPLS_2_0.25"))
+    # ml_models.append((LWPLS(16, 2 ** -2, X_test, y_test), "LWPLS_16_0.25"))
     # ml_models.append((LWPLS(30, 2 ** -2, X_test, y_test), "LWPLS_30_0.25"))
 
     return ml_models

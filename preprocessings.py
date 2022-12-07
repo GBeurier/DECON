@@ -84,4 +84,5 @@ def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="a
 
 
 def preprocessing_list():
-    return [id_preprocessing, savgol, haar, bacon_set, decon_set]
+    # return [id_preprocessing, savgol, haar, bacon_set, decon_set]
+    return [haar, decon_set]
