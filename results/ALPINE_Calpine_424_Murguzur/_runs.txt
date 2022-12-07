@@ -1,0 +1,6 @@
+4.814193  ---  transformer_vg-id_preprocessing-31441          2022-12-07  17:36:48
+5.405774  ---  transformer-id_preprocessing-31441          2022-12-07  17:51:24
+3.0916994  ---  transformer_vg-haar-31441          2022-12-07  18:29:49
+7.5336256  ---  transformer-haar-31441          2022-12-07  18:35:26
+5.3182187  ---  transformer_vg-decon_set-31441          2022-12-07  18:40:22
+5.482133  ---  transformer-decon_set-31441          2022-12-07  18:46:33
