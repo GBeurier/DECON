@@ -247,6 +247,7 @@ def transformer_vg(
     outputs = Dense(1, activation="sigmoid")(x)
     return Model(inputs, outputs)
 
+
 def transformer(
     meta,
     head_size=24,
@@ -312,7 +313,7 @@ class Auto_Save(Callback):
 
     def on_train_end(self, logs=None):
         # if self.params['verbose'] == 2:
-        print('\nSaved best {0:6.4f} at epoch'.format(self.best), self.best_epoch, '\n')
+        print('Saved best {0:6.4f} at epoch'.format(self.best), self.best_epoch)
         self.model.set_weights(Auto_Save.best_weights)
 
 
@@ -348,7 +349,7 @@ def clr(epoch):
 
 
 def nn_list():
-    return [transformer_vg, transformer]
+    return [transformer_vg]
     # return [bacon, decon, transformer]
     # return [bacon, bacon_vg, decon, decon_layer, transformer, xception1D]
 
