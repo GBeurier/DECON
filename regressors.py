@@ -302,21 +302,25 @@ def clr(epoch):
 
 
 def nn_list():
-    return [bacon, bacon_vg, decon, decon_layer, transformer, xception1D]
+    return [bacon, decon, transformer]
+    # return [bacon, bacon_vg, decon, decon_layer, transformer, xception1D]
 
 
 def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *, verbose=2, seed=0):
-    early_stop = EarlyStopping(monitor='val_loss', patience=400, verbose=0, mode='min') 
+    early_stop = EarlyStopping(monitor='val_loss', patience=250, verbose=0, mode='min') 
     log_dir = "logs/fit/"+run_name+"/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
+    callbacks = [Auto_Save(), early_stop, lrScheduler, tensorboard_callback]
     if model_func == transformer:
         batch_size = 100
+        callbacks = callbacks[:-1]
+        print(callbacks)
     k_regressor = KerasRegressor(
         model=model_func,
         loss='mean_squared_error', metrics=['mse'],
         optimizer="adam",
-        callbacks=[Auto_Save(), early_stop, lrScheduler, tensorboard_callback],
+        callbacks=callbacks,
         epochs=epochs,
         batch_size=batch_size,
         fit__validation_data=(X_test, y_test),
@@ -337,6 +341,6 @@ def ml_list(SEED, X_test, y_test):
 
     ml_models.append((LWPLS(2, 2 ** -2, X_test, y_test), "LWPLS_2_0.25"))
     ml_models.append((LWPLS(16, 2 ** -2, X_test, y_test), "LWPLS_16_0.25"))
-    ml_models.append((LWPLS(30, 2 ** -2, X_test, y_test), "LWPLS_30_0.25"))
+    # ml_models.append((LWPLS(30, 2 ** -2, X_test, y_test), "LWPLS_30_0.25"))
 
     return ml_models
