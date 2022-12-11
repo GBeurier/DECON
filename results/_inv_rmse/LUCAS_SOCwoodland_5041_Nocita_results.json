@@ -1,0 +1,32 @@
+{
+    "transformer_vg-transf_set-31441": {
+        "model": "transformer_vg-transf_set-31441",
+        "dataset": "LUCAS_SOCwoodland_5041_Nocita",
+        "seed": "31441",
+        "targetRMSE": "11.9",
+        "RMSE": "177.04057",
+        "MAPE": "0.40076208",
+        "R2": "0.6178518743629432",
+        "MAE": "9.26691",
+        "MSE": "13.305659",
+        "MedAE": "6.7406254",
+        "EVS": "0.6200476288795471",
+        "run": "2022-12-10  02:36:18",
+        "training_time": "02:31:17"
+    },
+    "vgg1D-decon_set-31441": {
+        "model": "vgg1D-decon_set-31441",
+        "dataset": "LUCAS_SOCwoodland_5041_Nocita",
+        "seed": "31441",
+        "targetRMSE": "11.9",
+        "RMSE": "218.29343",
+        "MAPE": "0.4996507",
+        "R2": "0.5288062336081361",
+        "MAE": "10.581853",
+        "MSE": "14.774756",
+        "MedAE": "8.209375",
+        "EVS": "0.5320547819137573",
+        "run": "2022-12-09  19:54:08",
+        "training_time": "00:10:21"
+    }
+}

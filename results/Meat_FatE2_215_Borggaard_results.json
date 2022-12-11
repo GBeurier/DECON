@@ -1,0 +1,32 @@
+{
+    "decon-decon_set-31441": {
+        "model": "decon-decon_set-31441",
+        "dataset": "Meat_FatE2_215_Borggaard",
+        "seed": "31441",
+        "targetRMSE": "0.44",
+        "RMSE": "2.0983884",
+        "MAPE": "0.022286724",
+        "R2": "0.4535241735401505",
+        "MAE": "1.5720596",
+        "MSE": "4.4032345",
+        "MedAE": "1.1875",
+        "EVS": "0.47003173828125",
+        "run": "2022-12-10  14:23:00",
+        "training_time": "00:02:32"
+    },
+    "decon-dumb_set-31441": {
+        "model": "decon-dumb_set-31441",
+        "dataset": "Meat_FatE2_215_Borggaard",
+        "seed": "31441",
+        "targetRMSE": "0.44",
+        "RMSE": "4.1235986",
+        "MAPE": "0.048983026",
+        "R2": "-1.1103372189732532",
+        "MAE": "3.4235296",
+        "MSE": "17.004065",
+        "MedAE": "2.75",
+        "EVS": "0.34427523612976074",
+        "run": "2022-12-10  14:29:25",
+        "training_time": "00:06:24"
+    }
+}

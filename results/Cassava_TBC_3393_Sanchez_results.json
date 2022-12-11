@@ -1,0 +1,32 @@
+{
+    "decon-dumb_set-31441": {
+        "model": "decon-dumb_set-31441",
+        "dataset": "Cassava_TBC_3393_Sanchez",
+        "seed": "31441",
+        "targetRMSE": "1.12",
+        "RMSE": "1.4111415",
+        "MAPE": "0.2421293",
+        "R2": "0.7629089643433286",
+        "MAE": "1.1005952",
+        "MSE": "1.9913204",
+        "MedAE": "0.9221616",
+        "EVS": "0.7655565142631531",
+        "run": "2022-12-10  05:57:01",
+        "training_time": "00:39:01"
+    },
+    "decon-decon_set-31441": {
+        "model": "decon-decon_set-31441",
+        "dataset": "Cassava_TBC_3393_Sanchez",
+        "seed": "31441",
+        "targetRMSE": "1.12",
+        "RMSE": "1.488754",
+        "MAPE": "0.19877873",
+        "R2": "0.7361118404223888",
+        "MAE": "1.0729784",
+        "MSE": "2.2163885",
+        "MedAE": "0.764415",
+        "EVS": "0.7835327386856079",
+        "run": "2022-12-10  05:17:48",
+        "training_time": "00:10:24"
+    }
+}

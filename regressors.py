@@ -6,14 +6,39 @@ from sklearn.cross_decomposition import PLSRegression
 from xgboost import XGBRegressor
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 from tensorflow.keras.layers import Dense, Conv1D, Activation, SpatialDropout1D, BatchNormalization, Flatten, Dropout, \
                                     Input, MaxPool1D, SeparableConv1D, Add, GlobalAveragePooling1D, \
-                                    DepthwiseConv1D, MaxPooling1D, LayerNormalization, MultiHeadAttention
+                                    DepthwiseConv1D, MaxPooling1D, LayerNormalization, MultiHeadAttention, SeparableConv1D
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import Callback, EarlyStopping
 from scikeras.wrappers import KerasRegressor
 
+from keras_self_attention import SeqSelfAttention
+# from transformers import Transformer
 from lwpls import LWPLS
+
+
+def vgg_block(layer_in, n_filters, n_conv):
+    # add convolutional layers
+    for _ in range(n_conv):
+        layer_in = Conv1D(filters=n_filters, kernel_size=3, padding='same', activation="relu")(layer_in)
+    layer_in = MaxPooling1D(2, strides=2)(layer_in)
+    return layer_in
+
+
+def vgg1D(meta):
+    input_shape = meta["X_shape_"][1:]
+    visible = Input(shape=input_shape)
+    layer = vgg_block(visible, 64, 2)
+    layer = vgg_block(layer, 128, 2)
+    layer = vgg_block(layer, 256, 2)
+    layer = Flatten()(layer)
+    layer = Dense(units=16, activation="sigmoid")(layer)
+    layer = Dense(units=1, activation="linear")(layer)
+    model = Model(inputs=visible, outputs=layer)
+    # model.compile(loss='root_mean_squared_error', metrics=['root_mean_squared_error'], optimizer="adam")
+    return model
 
 
 def xception_entry_flow(inputs):
@@ -124,7 +149,7 @@ def bacon_vg(meta):
     model.add(Dense(units=1024, activation="relu"))
     model.add(Dense(units=1, activation="sigmoid"))
     # we compile the model with the custom Adam optimizer
-    model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
+    # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
     return model
 
 
@@ -133,6 +158,7 @@ def bacon(meta):
     model = Sequential()
     model.add(Input(shape=input_shape))
     model.add(SpatialDropout1D(0.08))
+    # model.add(SeqSelfAttention(attention_width=7, attention_activation='relu'))
     model.add(Conv1D(filters=8, kernel_size=15, strides=5, activation='selu'))
     model.add(Dropout(0.2))
     model.add(Conv1D(filters=64, kernel_size=21, strides=3, activation='relu'))
@@ -142,7 +168,7 @@ def bacon(meta):
     model.add(Flatten())
     model.add(Dense(16, activation='sigmoid'))
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
+    # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
     return model
 
 
@@ -171,8 +197,9 @@ def decon(meta):
     model.add(Dense(units=128, activation="relu"))
     model.add(Dense(units=32, activation="relu"))
     model.add(Dropout(0.2))
+    # model.add(Dense(units=16, activation="sigmoid"))
     model.add(Dense(units=1, activation="sigmoid"))
-    model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
+    # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
     return model
 
 
@@ -202,8 +229,56 @@ def decon_layer(meta):
     model.add(Dense(units=32, activation="relu"))
     model.add(Dropout(0.2))
     model.add(Dense(units=1, activation="sigmoid"))
-    model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
+    # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
     return model
+
+
+def transformer_depthwise_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
+    x = Conv1D(filters=32, kernel_size=7, strides=3, activation='relu')
+    x = Conv1D(filters=8, kernel_size=7, strides=3, activation='relu')
+    # Attention and Normalization
+    x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
+    x = Dropout(dropout)(x)
+    x = LayerNormalization(epsilon=1e-6)(x)
+    inputs = tf.cast(inputs, tf.float16)
+    res = x + inputs
+
+    # Feed Forward Part
+    x = Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+    x = Dropout(dropout)(x)
+    x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+    x = LayerNormalization(epsilon=1e-6)(x)
+    res = tf.cast(res, tf.float16)
+    return x + res
+
+
+def transformer_nirs(
+    meta,
+    head_size=8,
+    num_heads=2,
+    ff_dim=8,
+    num_transformer_blocks=1,
+    mlp_units=[8],
+    dropout=0.2,
+    mlp_dropout=0.2,
+):
+    input_shape = meta["X_shape_"][1:]
+    inputs = Input(shape=input_shape)
+    x = inputs
+    for _ in range(num_transformer_blocks):
+        x = transformer_depthwise_encoder(x, head_size, num_heads, ff_dim, dropout)
+
+    x = GlobalAveragePooling1D(data_format="channels_first")(x)
+    for dim in mlp_units:
+        x = Dense(dim, activation="relu")(x)
+        x = Dropout(mlp_dropout)(x)
+    outputs = Dense(1, activation="sigmoid")(x)
+    model = Model(inputs, outputs)
+    # model.summary()
+    return model
+
+
+
 
 
 def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
@@ -223,6 +298,7 @@ def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
     x = LayerNormalization(epsilon=1e-6)(x)
     res = tf.cast(res, tf.float16)
     return x + res
+
 
 def transformer_vg(
     meta,
@@ -274,11 +350,11 @@ def transformer(
 
 def transformer_max(
     meta,
-    head_size=64,
+    head_size=16,
     num_heads=4,
-    ff_dim=8,
-    num_transformer_blocks=4,
-    mlp_units=[32],
+    ff_dim=4,
+    num_transformer_blocks=6,
+    mlp_units=[16],
     dropout=0.05,
     mlp_dropout=0.1,
 ):
@@ -299,25 +375,32 @@ def transformer_max(
 class Auto_Save(Callback):
     best_weights = []
 
-    def __init__(self):
+    def __init__(self, model_func, shape, cb_func=None):
         super(Auto_Save, self).__init__()
+        self.model_name = model_func.__name__
+        self.shape = shape
         self.best = np.Inf
+        self.cb = cb_func
 
     def on_epoch_end(self, epoch, logs=None):
         current_loss = logs.get('val_loss')
+        print('epoch', str(epoch).zfill(5), end='\r')
         if np.less(current_loss, self.best):
             self.best = current_loss            
             Auto_Save.best_weights = self.model.get_weights()
             self.best_epoch = epoch
+            if self.cb is not None:
+                self.cb(epoch, self.best)
             # print("Best so far >", self.best)
 
     def on_train_end(self, logs=None):
         # if self.params['verbose'] == 2:
         print('Saved best {0:6.4f} at epoch'.format(self.best), self.best_epoch)
         self.model.set_weights(Auto_Save.best_weights)
+        # self.model.save_weights(self.model_name + "-".join(self.shape[1:] + ".hdf5")
 
 
-class Print_LR(Callback):    
+class Print_LR(Callback):
     def on_epoch_end(self, epoch, logs=None):
         iteration = self.model.optimizer.iterations.numpy()
         # lr = clr(iteration).numpy()
@@ -330,6 +413,9 @@ def scale_fn(x):
     # return 1. ** x
     return 1 / (2.0 ** (x - 1))
 
+
+# def calc_lr(step, warmup_steps=200):
+#     return 2**(-0.5) * min(step**(-0.5), (step+1) * warmup_steps**(-1.5))
 
 def clr(epoch):
     cycle_params = {
@@ -349,32 +435,70 @@ def clr(epoch):
 
 
 def nn_list():
-    return [transformer_vg]
+    return [decon]
+    # return [vgg1D]
+    # return [transformer_vg]
     # return [bacon, decon, transformer]
     # return [bacon, bacon_vg, decon, decon_layer, transformer, xception1D]
 
 
-def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *, verbose=2, seed=0):
+def rmse_loss(y_true, y_pred):
+    return tf.sqrt(tf.reduce_mean((y_true - y_pred)**2))
+
+
+# def coeff_determination(y_true, y_pred):
+#     # SS_res = tf.sum(tf.square(y_true - y_pred))
+#     # SS_tot = tf.sum(tf.square(y_true - tf.mean(y_true)))
+#     # return (1 - SS_res/(SS_tot + tf.epsilon()))
+
+
+def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *, callback_func=None, transfer=False, verbose=2, seed=0):
+
     early_stop = EarlyStopping(monitor='val_loss', patience=256, verbose=0, mode='min') 
     log_dir = "logs/fit/"+run_name+"/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
-    callbacks = [Auto_Save(), early_stop, tensorboard_callback, lrScheduler]
+
+    auto_save = Auto_Save(model_func, X_test.shape, callback_func)
+    callbacks = [auto_save, early_stop, tensorboard_callback, lrScheduler]
     if model_func == transformer_vg:
-        batch_size = 500
+        batch_size = 15
+        epochs = 512
         # callbacks = callbacks[:-1]
 
-    if model_func == transformer:
-        batch_size = 100
+    if model_func == transformer_nirs:
+        batch_size = 50
         # callbacks = callbacks[:-1]
 
-    if model_func == transformer_vg:
-        batch_size = 10
+    if model_func == transformer_max:
+        batch_size = 25
         callbacks = callbacks[:-1]
+
+    if transfer:
+        meta = {
+            "X_shape_": X_test.shape
+        }
+        model_instance = model_func(meta)
+
+        # weights_name = self.model_name + "-".join(self.shape[1:]) + ".hdf5"
+        rmse = tf.keras.metrics.RootMeanSquaredError()
+        k_regressor = KerasRegressor(
+            model=model_instance,
+            loss=rmse_loss,
+            metrics=[rmse],
+            optimizer="adam",
+            callbacks=callbacks,
+            epochs=epochs,
+            batch_size=batch_size,
+            fit__validation_data=(X_test, y_test),
+            verbose=verbose,
+            )
+
+        return k_regressor
 
     k_regressor = KerasRegressor(
         model=model_func,
-        loss='mean_squared_error', metrics=['mse'],
+        loss='mean_squared_error', metrics=['root_mean_squared_error'],
         optimizer="adam",
         callbacks=callbacks,
         epochs=epochs,
@@ -386,9 +510,34 @@ def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *,
     return k_regressor
 
 
+def pls_generator(start, end, step):
+    funcs = []
+    for nc in range(start, end, step):
+        def pls(X_test, y_test, seed, nc=nc):
+            return (PLSRegression(nc, max_iter=5000), 'PLS_' + str(nc))
+        funcs.append(pls)
+    return funcs
+
+
+def xgboot_generator(n_estimators=100, max_depth=None):
+    def xgboost(X_test, y_test, seed, n_estimators=n_estimators, max_depth=max_depth):
+        return (XGBRegressor(n_estimators=200, max_depth=50, seed=seed), 'XGBoost_' + str(nc) + '_' + str(max_depth))
+    return xgboost
+
+
+def lwpls_generator(n_components=100):
+    def lwpls(X_test, y_test, seed, n_components=n_components):
+        return (LWPLS(n_components, 2 ** -2, X_test, y_test), 'LWPLS_' + str(n_components))
+    return lwpls
+
+
+def get_ml_model(model_func, X_test, y_test, seed=0):
+    return model_func(X_test, y_test, seed)
+
+
 def ml_list(SEED, X_test, y_test):
     # ml_models = [(PLSRegression(nc, max_iter=5000), "PLS" + str(nc)) for nc in range(4, 12, 4)] # test
-    ml_models = [(PLSRegression(nc, max_iter=5000), "PLS" + str(nc)) for nc in range(4, 100, 4)]
+    # ml_models = [(PLSRegression(nc, max_iter=5000), "PLS" + str(nc)) for nc in range(4, 100, 4)]
     # ml_models.append((XGBRegressor(seed=SEED), 'XGBoost_100_None'))
     # ml_models.append((XGBRegressor(n_estimators=200, max_depth=50, seed=SEED), 'XGBoost_200_10'))
     # ml_models.append((XGBRegressor(n_estimators=50, max_depth=100, seed=SEED), 'XGBoost_50_100'))

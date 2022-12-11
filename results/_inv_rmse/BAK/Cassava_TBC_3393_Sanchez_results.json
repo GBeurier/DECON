@@ -1,0 +1,62 @@
+{
+    "decon-decon_set-31441": {
+        "model": "decon-decon_set-31441",
+        "dataset": "Cassava_TBC_3393_Sanchez",
+        "seed": "31441",
+        "targetRMSE": "1.12",
+        "RMSE": "1.4128069",
+        "MAPE": "0.14879785",
+        "R2": "0.8317880692354896",
+        "MAE": "0.865388",
+        "MSE": "1.1886156",
+        "MedAE": "0.6476841",
+        "EVS": "0.8402813076972961",
+        "run": "2022-12-08  07:49:03",
+        "training_time": "00:05:58"
+    },
+    "transformer_vg-decon_set-31441": {
+        "model": "transformer_vg-decon_set-31441",
+        "dataset": "Cassava_TBC_3393_Sanchez",
+        "seed": "31441",
+        "targetRMSE": "1.12",
+        "RMSE": "1.8332099",
+        "MAPE": "0.21697176",
+        "R2": "0.7817339387927623",
+        "MAE": "1.0681027",
+        "MSE": "1.3539608",
+        "MedAE": "0.8946078",
+        "EVS": "0.7888870239257812",
+        "run": "2022-12-07  23:34:29",
+        "training_time": "00:16:23"
+    },
+    "transformer_vg-haar-31441": {
+        "model": "transformer_vg-haar-31441",
+        "dataset": "Cassava_TBC_3393_Sanchez",
+        "seed": "31441",
+        "targetRMSE": "1.12",
+        "RMSE": "1.8879031",
+        "MAPE": "0.3112171",
+        "R2": "0.7752220357503",
+        "MAE": "1.0521404",
+        "MSE": "1.3740098",
+        "MedAE": "0.873042",
+        "EVS": "0.7761860489845276",
+        "run": "2022-12-07  23:18:04",
+        "training_time": "00:13:05"
+    },
+    "decon-haar-31441": {
+        "model": "decon-haar-31441",
+        "dataset": "Cassava_TBC_3393_Sanchez",
+        "seed": "31441",
+        "targetRMSE": "1.12",
+        "RMSE": "2.2813141",
+        "MAPE": "0.4122407",
+        "R2": "0.7283816309340901",
+        "MAE": "1.2011808",
+        "MSE": "1.510402",
+        "MedAE": "1.0076814",
+        "EVS": "0.7292787432670593",
+        "run": "2022-12-08  07:43:04",
+        "training_time": "00:02:12"
+    }
+}
