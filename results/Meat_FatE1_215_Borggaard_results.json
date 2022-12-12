@@ -28,5 +28,20 @@
         "EVS": "-0.24460303783416748",
         "run": "2022-12-10  14:20:28",
         "training_time": "00:05:48"
+    },
+    "transformer_nirs-transf_set-31441": {
+        "model": "transformer_nirs-transf_set-31441",
+        "dataset": "Meat_FatE1_215_Borggaard",
+        "seed": "31441",
+        "targetRMSE": "2.33",
+        "RMSE": "23.76376",
+        "MAPE": "0.6970831",
+        "R2": "-436.92812907217706",
+        "MAE": "23.736406",
+        "MSE": "564.7163",
+        "MedAE": "23.825",
+        "EVS": "-0.007610440254211426",
+        "run": "2022-12-12  15:55:11",
+        "training_time": "00:02:20"
     }
 }

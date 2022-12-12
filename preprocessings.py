@@ -133,5 +133,5 @@ def preprocessing_list():
     # return [id_preprocessing, transf_set, decon_set]
     # return [decon_set, dumb_set]
     # return [transf_set]
-    return [small_set]
+    return [decon_set]
     # return [id_preprocessing]

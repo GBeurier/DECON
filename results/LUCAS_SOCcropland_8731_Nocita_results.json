@@ -1,4 +1,19 @@
 {
+    "custom_VG_residuals-small_set-31441": {
+        "model": "custom_VG_residuals-small_set-31441",
+        "dataset": "LUCAS_SOCcropland_8731_Nocita",
+        "seed": "31441",
+        "targetRMSE": "3.5",
+        "RMSE": "4.9647894",
+        "MAPE": "69576423000000.0",
+        "R2": "0.5073556256814642",
+        "MAE": "3.483648",
+        "MSE": "24.649136",
+        "MedAE": "2.5906253",
+        "EVS": "0.5094708800315857",
+        "run": "2022-12-12  13:04:01",
+        "training_time": "00:41:14"
+    },
     "decon-decon_set-31441": {
         "model": "decon-decon_set-31441",
         "dataset": "LUCAS_SOCcropland_8731_Nocita",

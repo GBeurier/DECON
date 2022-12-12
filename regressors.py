@@ -150,7 +150,7 @@ def transformer_depthwise_encoder_custom(inputs, head_size, num_heads, ff_dim, d
     return x + res
 
 
-def custom_VG_residuals(meta):
+def custom_residuals(meta):
     input_shape = meta["X_shape_"][1:]
 
     inputs = Input(shape=input_shape)
@@ -160,6 +160,47 @@ def custom_VG_residuals(meta):
     x = DepthwiseConv1D(kernel_size=5, strides=3, activation='relu')(x)
     x = LayerNormalization(epsilon=1e-6)(x)
     x = MultiHeadAttention(key_dim=11, num_heads=4, dropout=0.1)(x, x)
+    x = GlobalAveragePooling1D(data_format="channels_first")(x)
+    x = Flatten()(x)
+    x = Dense(16, activation='relu')(x)
+    x = Dropout(0.1)(x)
+    x = Dense(1, activation='sigmoid')(x)
+
+    outputs = x
+    model = Model(inputs, outputs)
+    model.summary()
+    return model
+
+
+def custom_VG_residuals(meta):
+    input_shape = meta["X_shape_"][1:]
+
+    inputs = Input(shape=input_shape)
+    x = SpatialDropout1D(0.2)(inputs)
+    x = DepthwiseConv1D(kernel_size=3, strides=3, depth_multiplier=2, activation='relu')(x)
+
+    def block(x, strides):
+        x = DepthwiseConv1D(kernel_size=3, strides=strides, activation='relu')(x)
+        x = DepthwiseConv1D(kernel_size=5, strides=1, activation='relu')(x)
+        x = DepthwiseConv1D(kernel_size=5, strides=1, activation='relu')(x)
+        x = LayerNormalization(epsilon=1e-6)(x)
+        x = MultiHeadAttention(key_dim=11, num_heads=4, dropout=0.1)(x, x)
+        return x
+
+    x = block(x, 2)
+    x = block(x, 2)
+    x = block(x, 2)
+    x = block(x, 1)
+    x = block(x, 1)
+    x = block(x, 1)
+
+    x = Conv1D(filters=16, kernel_size=1, activation="relu")(x)
+    x = Dropout(0.2)(x)
+    x = Conv1D(8, strides=8, kernel_size=8)(x)
+    x = LayerNormalization(epsilon=1e-6)(x)
+    x = GlobalAveragePooling1D(data_format="channels_first")(x)
+
+
 
     # x = SpatialDropout1D(0.2)(inputs)
     # x1 = DepthwiseConv1D(kernel_size=3, padding="same", depth_multiplier=8, activation='relu')(x)
@@ -185,7 +226,7 @@ def custom_VG_residuals(meta):
     # return x + res
 
 
-    x = GlobalAveragePooling1D(data_format="channels_first")(x)
+    
 
     # x = LayerNormalization(epsilon=1e-6)(x)
     # inputs = tf.cast(inputs, tf.float16)
@@ -205,7 +246,7 @@ def custom_VG_residuals(meta):
 
     outputs = x
     model = Model(inputs, outputs)
-    model.summary()
+    # model.summary()
     return model
 
 
@@ -348,9 +389,9 @@ def decon_layer(meta):
     return model
 
 
-def transformer_depthwise_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
-    x = Conv1D(filters=32, kernel_size=7, strides=3, activation='relu')
-    x = Conv1D(filters=8, kernel_size=7, strides=3, activation='relu')
+def transformer_encoder_nirs(inputs, head_size, num_heads, ff_dim, dropout=0):
+    # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
+    # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
     # Attention and Normalization
     x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
     x = Dropout(dropout)(x)
@@ -369,28 +410,30 @@ def transformer_depthwise_encoder(inputs, head_size, num_heads, ff_dim, dropout=
 
 def transformer_nirs(
     meta,
-    head_size=8,
+    head_size=16,
     num_heads=2,
     ff_dim=8,
-    num_transformer_blocks=1,
-    mlp_units=[8],
-    dropout=0.2,
-    mlp_dropout=0.2,
+    num_transformer_blocks=4,
+    mlp_units=[16],
+    dropout=0.05,
+    mlp_dropout=0.1,
 ):
     input_shape = meta["X_shape_"][1:]
     inputs = Input(shape=input_shape)
-    x = inputs
+    x = DepthwiseConv1D(kernel_size=3, strides=1, depth_multiplier=4, activation='relu')(inputs)
+    # x = DepthwiseConv1D(kernel_size=5, strides=2, depth_multiplier=4, activation='relu')(x)
+    # x = DepthwiseConv1D(kernel_size=5, strides=5, activation='relu')(x)
+    x = LayerNormalization(epsilon=1e-6)(x)
+    # x = inputs
     for _ in range(num_transformer_blocks):
-        x = transformer_depthwise_encoder(x, head_size, num_heads, ff_dim, dropout)
+        x = transformer_encoder_nirs(x, head_size, num_heads, ff_dim, dropout)
 
     x = GlobalAveragePooling1D(data_format="channels_first")(x)
     for dim in mlp_units:
         x = Dense(dim, activation="relu")(x)
         x = Dropout(mlp_dropout)(x)
     outputs = Dense(1, activation="sigmoid")(x)
-    model = Model(inputs, outputs)
-    # model.summary()
-    return model
+    return Model(inputs, outputs)
 
 
 
@@ -550,9 +593,10 @@ def clr(epoch):
 
 
 def nn_list():
-    return [custom_VG_residuals]
+    # return [custom_residuals]
     # return [vgg1D]
     # return [transformer_vg]
+    return [transformer_nirs]
     # return [bacon, decon, transformer]
     # return [bacon, bacon_vg, decon, decon_layer, transformer, xception1D]
 
@@ -576,30 +620,23 @@ def get_keras_model(run_name, model_func, epochs, batch_size, X_test, y_test, *,
 
     auto_save = Auto_Save(model_func, X_test.shape, callback_func)
     callbacks = [auto_save, early_stop, tensorboard_callback, lrScheduler]
-    if model_func == transformer_vg:
-        batch_size = 15
-        epochs = 512
-        # callbacks = callbacks[:-1]
-
-    if model_func == transformer_nirs:
-        batch_size = 50
-        # callbacks = callbacks[:-1]
-
-    if model_func == transformer_max:
-        batch_size = 25
-        callbacks = callbacks[:-1]
-
+    
     if transfer:
         meta = {
             "X_shape_": X_test.shape
         }
         model_instance = model_func(meta)
 
+        trainableParams = np.sum([np.prod(v.get_shape()) for v in model_instance.trainable_weights])
+        nonTrainableParams = np.sum([np.prod(v.get_shape()) for v in model_instance.non_trainable_weights])
+        totalParams = trainableParams + nonTrainableParams
+        print('--- Trainable:', trainableParams, '- untrainable:', nonTrainableParams, ">", totalParams)
+
         # weights_name = self.model_name + "-".join(self.shape[1:]) + ".hdf5"
         rmse = tf.keras.metrics.RootMeanSquaredError()
         k_regressor = KerasRegressor(
             model=model_instance,
-            loss=rmse_loss,
+            loss="mean_squared_error",
             metrics=[rmse],
             optimizer="adam",
             callbacks=callbacks,
