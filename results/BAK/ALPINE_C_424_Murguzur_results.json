@@ -1,0 +1,482 @@
+[
+    [
+        "transformer-decon_set-31441",
+        {
+            "model": "transformer-decon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.3042126",
+            "MAPE": "0.019740585",
+            "R2": "0.7333366605775538",
+            "MAE": "0.9022627",
+            "MSE": "1.1420213",
+            "MedAE": "0.69527054",
+            "EVS": "0.733698844909668",
+            "MSLE": "0.00059204677"
+        }
+    ],
+    [
+        "transformer-bacon_set-31441",
+        {
+            "model": "transformer-bacon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.3180727",
+            "MAPE": "0.01896684",
+            "R2": "0.7305028032854951",
+            "MAE": "0.8705945",
+            "MSE": "1.1480734",
+            "MedAE": "0.69878006",
+            "EVS": "0.7331444621086121",
+            "MSLE": "0.0005997895"
+        }
+    ],
+    [
+        "transformer-id_preprocessing-31441",
+        {
+            "model": "transformer-id_preprocessing-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.3490385",
+            "MAPE": "0.01921589",
+            "R2": "0.7241714158410644",
+            "MAE": "0.8797053",
+            "MSE": "1.1614811",
+            "MedAE": "0.6906471",
+            "EVS": "0.7246145009994507",
+            "MSLE": "0.0006160358"
+        }
+    ],
+    [
+        "transformer-savgol-31441",
+        {
+            "model": "transformer-savgol-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.398418",
+            "MAPE": "0.01910663",
+            "R2": "0.7140751519092947",
+            "MAE": "0.8728798",
+            "MSE": "1.1825472",
+            "MedAE": "0.5925865",
+            "EVS": "0.715365469455719",
+            "MSLE": "0.0006466688"
+        }
+    ],
+    [
+        "bacon_vg-bacon_set-31441",
+        {
+            "model": "bacon_vg-bacon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.4289714",
+            "MAPE": "0.019303987",
+            "R2": "0.7078280964136102",
+            "MAE": "0.8795191",
+            "MSE": "1.195396",
+            "MedAE": "0.5900917",
+            "EVS": "0.7084496021270752",
+            "MSLE": "0.000665965"
+        }
+    ],
+    [
+        "bacon-haar-31441",
+        {
+            "model": "bacon-haar-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.4614539",
+            "MAPE": "0.019886136",
+            "R2": "0.7011866771367508",
+            "MAE": "0.91360456",
+            "MSE": "1.208906",
+            "MedAE": "0.74412537",
+            "EVS": "0.7089506387710571",
+            "MSLE": "0.00064705213"
+        }
+    ],
+    [
+        "bacon-bacon_set-31441",
+        {
+            "model": "bacon-bacon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.4962167",
+            "MAPE": "0.01984338",
+            "R2": "0.6940789220782924",
+            "MAE": "0.90197164",
+            "MSE": "1.2231994",
+            "MedAE": "0.64180374",
+            "EVS": "0.6944968700408936",
+            "MSLE": "0.0007072679"
+        }
+    ],
+    [
+        "bacon_vg-decon_set-31441",
+        {
+            "model": "bacon_vg-decon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.5624655",
+            "MAPE": "0.020243026",
+            "R2": "0.6805334912548514",
+            "MAE": "0.91699284",
+            "MSE": "1.2499862",
+            "MedAE": "0.74222946",
+            "EVS": "0.6809672117233276",
+            "MSLE": "0.000730031"
+        }
+    ],
+    [
+        "decon-bacon_set-31441",
+        {
+            "model": "decon-bacon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.584562",
+            "MAPE": "0.020946091",
+            "R2": "0.6760155923716384",
+            "MAE": "0.9556304",
+            "MSE": "1.2587938",
+            "MedAE": "0.6838417",
+            "EVS": "0.6764874458312988",
+            "MSLE": "0.00073241285"
+        }
+    ],
+    [
+        "bacon-decon_set-31441",
+        {
+            "model": "bacon-decon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.6680638",
+            "MAPE": "0.02071722",
+            "R2": "0.6589425497608823",
+            "MAE": "0.9467462",
+            "MSE": "1.2915354",
+            "MedAE": "0.7473488",
+            "EVS": "0.6605879068374634",
+            "MSLE": "0.00076282007"
+        }
+    ],
+    [
+        "decon_layer-id_preprocessing-31441",
+        {
+            "model": "decon_layer-id_preprocessing-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.7502686",
+            "MAPE": "0.02232801",
+            "R2": "0.6421346906401039",
+            "MAE": "1.0213095",
+            "MSE": "1.3229772",
+            "MedAE": "0.7432327",
+            "EVS": "0.6422933340072632",
+            "MSLE": "0.00078913284"
+        }
+    ],
+    [
+        "decon-savgol-31441",
+        {
+            "model": "decon-savgol-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.7974396",
+            "MAPE": "0.022533499",
+            "R2": "0.6324899516301903",
+            "MAE": "1.0285964",
+            "MSE": "1.3406862",
+            "MedAE": "0.7510185",
+            "EVS": "0.6349436640739441",
+            "MSLE": "0.0008321239"
+        }
+    ],
+    [
+        "decon-decon_set-31441",
+        {
+            "model": "decon-decon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.8250517",
+            "MAPE": "0.021335693",
+            "R2": "0.62684431060099",
+            "MAE": "0.9734155",
+            "MSE": "1.3509448",
+            "MedAE": "0.6733742",
+            "EVS": "0.6288799047470093",
+            "MSLE": "0.00084914954"
+        }
+    ],
+    [
+        "bacon-savgol-31441",
+        {
+            "model": "bacon-savgol-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.9794992",
+            "MAPE": "0.023732802",
+            "R2": "0.5952655283240993",
+            "MAE": "1.0882435",
+            "MSE": "1.4069468",
+            "MedAE": "0.8975258",
+            "EVS": "0.5976530313491821",
+            "MSLE": "0.0008951191"
+        }
+    ],
+    [
+        "bacon-id_preprocessing-31441",
+        {
+            "model": "bacon-id_preprocessing-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "1.9918575",
+            "MAPE": "0.0233239",
+            "R2": "0.5927386927002691",
+            "MAE": "1.0658429",
+            "MSE": "1.4113318",
+            "MedAE": "0.804657",
+            "EVS": "0.5927404165267944",
+            "MSLE": "0.0009086241"
+        }
+    ],
+    [
+        "bacon_vg-id_preprocessing-31441",
+        {
+            "model": "bacon_vg-id_preprocessing-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "2.054974",
+            "MAPE": "0.023962662",
+            "R2": "0.5798336986254964",
+            "MAE": "1.0920805",
+            "MSE": "1.433518",
+            "MedAE": "0.7358742",
+            "EVS": "0.5798451900482178",
+            "MSLE": "0.00094638806"
+        }
+    ],
+    [
+        "decon_layer-decon_set-31441",
+        {
+            "model": "decon_layer-decon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "2.1489556",
+            "MAPE": "0.024583941",
+            "R2": "0.5606178572447886",
+            "MAE": "1.1178066",
+            "MSE": "1.4659317",
+            "MedAE": "0.8236656",
+            "EVS": "0.5637332201004028",
+            "MSLE": "0.0009864123"
+        }
+    ],
+    [
+        "decon_layer-bacon_set-31441",
+        {
+            "model": "decon_layer-bacon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "2.270731",
+            "MAPE": "0.026132159",
+            "R2": "0.5357193816528996",
+            "MAE": "1.1893829",
+            "MSE": "1.5068945",
+            "MedAE": "0.86603546",
+            "EVS": "0.5362110137939453",
+            "MSLE": "0.0010620828"
+        }
+    ],
+    [
+        "transformer-haar-31441",
+        {
+            "model": "transformer-haar-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "3.1018708",
+            "MAPE": "0.030678686",
+            "R2": "0.36578197300284787",
+            "MAE": "1.4064152",
+            "MSE": "1.7612128",
+            "MedAE": "1.2420082",
+            "EVS": "0.3765268325805664",
+            "MSLE": "0.0014203296"
+        }
+    ],
+    [
+        "bacon_vg-savgol-31441",
+        {
+            "model": "bacon_vg-savgol-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "3.4798758",
+            "MAPE": "0.03233106",
+            "R2": "0.28849383815036866",
+            "MAE": "1.4781466",
+            "MSE": "1.8654425",
+            "MedAE": "1.1788177",
+            "EVS": "0.28849464654922485",
+            "MSLE": "0.0015858533"
+        }
+    ],
+    [
+        "decon_layer-haar-31441",
+        {
+            "model": "decon_layer-haar-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "3.4982035",
+            "MAPE": "0.033357434",
+            "R2": "0.2847465522200844",
+            "MAE": "1.5225421",
+            "MSE": "1.8703485",
+            "MedAE": "1.3083725",
+            "EVS": "0.2847651243209839",
+            "MSLE": "0.0016001683"
+        }
+    ],
+    [
+        "bacon_vg-haar-31441",
+        {
+            "model": "bacon_vg-haar-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.779133",
+            "MAPE": "0.036874853",
+            "R2": "0.022843816230968428",
+            "MAE": "1.6847198",
+            "MSE": "2.186123",
+            "MedAE": "1.3287506",
+            "EVS": "0.024034440517425537",
+            "MSLE": "0.0021557575"
+        }
+    ],
+    [
+        "decon-haar-31441",
+        {
+            "model": "decon-haar-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.8718805",
+            "MAPE": "0.037288688",
+            "R2": "0.0038802058909169768",
+            "MAE": "1.7065451",
+            "MSE": "2.2072337",
+            "MedAE": "1.3605537",
+            "EVS": "0.003899991512298584",
+            "MSLE": "0.0022100082"
+        }
+    ],
+    [
+        "xception1D-decon_set-31441",
+        {
+            "model": "xception1D-decon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.887179",
+            "MAPE": "0.037338402",
+            "R2": "0.0007523035332972494",
+            "MAE": "1.7085292",
+            "MSE": "2.2106965",
+            "MedAE": "1.3293037",
+            "EVS": "0.0008170008659362793",
+            "MSLE": "0.0022100082"
+        }
+    ],
+    [
+        "xception1D-id_preprocessing-31441",
+        {
+            "model": "xception1D-id_preprocessing-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.8910923",
+            "MAPE": "0.03736975",
+            "R2": "-4.787916842463602e-05",
+            "MAE": "1.7100173",
+            "MSE": "2.2115815",
+            "MedAE": "1.3293037",
+            "EVS": "-1.1920928955078125e-07",
+            "MSLE": "0.0022100082"
+        }
+    ],
+    [
+        "decon_layer-savgol-31441",
+        {
+            "model": "decon_layer-savgol-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.8910923",
+            "MAPE": "0.03736975",
+            "R2": "-4.787916842463602e-05",
+            "MAE": "1.7100173",
+            "MSE": "2.2115815",
+            "MedAE": "1.3293037",
+            "EVS": "-1.1920928955078125e-07",
+            "MSLE": "0.0022100082"
+        }
+    ],
+    [
+        "xception1D-haar-31441",
+        {
+            "model": "xception1D-haar-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.8910923",
+            "MAPE": "0.03736975",
+            "R2": "-4.787916842463602e-05",
+            "MAE": "1.7100173",
+            "MSE": "2.2115815",
+            "MedAE": "1.3293037",
+            "EVS": "-1.1920928955078125e-07",
+            "MSLE": "0.0022100082"
+        }
+    ],
+    [
+        "decon-id_preprocessing-31441",
+        {
+            "model": "decon-id_preprocessing-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.8911133",
+            "MAPE": "0.03739289",
+            "R2": "-5.202096439305137e-05",
+            "MAE": "1.712251",
+            "MSE": "2.2115862",
+            "MedAE": "1.3605537",
+            "EVS": "-1.1920928955078125e-07",
+            "MSLE": "0.0022100082"
+        }
+    ],
+    [
+        "xception1D-savgol-31441",
+        {
+            "model": "xception1D-savgol-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.8969126",
+            "MAPE": "0.037355848",
+            "R2": "-0.0012376472626642876",
+            "MAE": "1.7070411",
+            "MSE": "2.2128968",
+            "MedAE": "1.3608742",
+            "EVS": "-1.1920928955078125e-07",
+            "MSLE": "0.0022197403"
+        }
+    ],
+    [
+        "xception1D-bacon_set-31441",
+        {
+            "model": "xception1D-bacon_set-31441",
+            "dataset": "ALPINE_C_424_Murguzur",
+            "targetRMSE": "1.16",
+            "RMSE": "4.8970118",
+            "MAPE": "0.037449874",
+            "R2": "-0.0012582884524603433",
+            "MAE": "1.7172112",
+            "MSE": "2.2129192",
+            "MedAE": "1.3383942",
+            "EVS": "-1.1920928955078125e-07",
+            "MSLE": "0.0022079055"
+        }
+    ]
+]
