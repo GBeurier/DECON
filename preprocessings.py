@@ -81,6 +81,17 @@ def transf_set():
     return preprocessing
 
 
+def small_set():
+    preprocessing = [   
+        ('id', pp.IdentityTransformer()),
+        ('baseline', pp.StandardNormalVariate()),
+        ('savgol', pp.SavitzkyGolay()),
+        ('haar', pp.Wavelet('haar')),
+        ('detrend', pp.Detrend()),
+    ]
+    return preprocessing
+
+
 def dumb_set():
     pp_list = transf_set()
 
@@ -120,6 +131,7 @@ def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="a
 def preprocessing_list():
     # return [id_preprocessing, savgol, haar, bacon_set, decon_set]
     # return [id_preprocessing, transf_set, decon_set]
-    return [decon_set, dumb_set]
-    # return [dumb_set]
+    # return [decon_set, dumb_set]
     # return [transf_set]
+    return [small_set]
+    # return [id_preprocessing]

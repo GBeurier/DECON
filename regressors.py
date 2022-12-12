@@ -8,8 +8,9 @@ from xgboost import XGBRegressor
 import tensorflow as tf
 import tensorflow_addons as tfa
 from tensorflow.keras.layers import Dense, Conv1D, Activation, SpatialDropout1D, BatchNormalization, Flatten, Dropout, \
-                                    Input, MaxPool1D, SeparableConv1D, Add, GlobalAveragePooling1D, \
-                                    DepthwiseConv1D, MaxPooling1D, LayerNormalization, MultiHeadAttention, SeparableConv1D
+                                    Input, MaxPool1D, SeparableConv1D, Add, GlobalAveragePooling1D, Concatenate, \
+                                    DepthwiseConv1D, MaxPooling1D, LayerNormalization, MultiHeadAttention, SeparableConv1D, \
+                                    LocallyConnected1D
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import Callback, EarlyStopping
 from scikeras.wrappers import KerasRegressor
@@ -128,6 +129,120 @@ def xception1D(meta):
     inputs = Input(shape=input_shape)
     outputs = xception_exit_flow(xception_middle_flow(xception_entry_flow(inputs)))
     return Model(inputs, outputs)
+
+
+def transformer_depthwise_encoder_custom(inputs, head_size, num_heads, ff_dim, dropout=0):
+    x = Conv1D(filters=32, kernel_size=7, strides=3, activation='relu')
+    x = Conv1D(filters=8, kernel_size=7, strides=3, activation='relu')
+    # Attention and Normalization
+    x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
+    x = Dropout(dropout)(x)
+    x = LayerNormalization(epsilon=1e-6)(x)
+    inputs = tf.cast(inputs, tf.float16)
+    res = x + inputs
+
+    # Feed Forward Part
+    x = Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+    x = Dropout(dropout)(x)
+    x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+    x = LayerNormalization(epsilon=1e-6)(x)
+    res = tf.cast(res, tf.float16)
+    return x + res
+
+
+def custom_VG_residuals(meta):
+    input_shape = meta["X_shape_"][1:]
+
+    inputs = Input(shape=input_shape)
+    x = SpatialDropout1D(0.2)(inputs)
+    x = DepthwiseConv1D(kernel_size=3, strides=3, depth_multiplier=2, activation='relu')(x)
+    x = DepthwiseConv1D(kernel_size=5, strides=3, activation='relu')(x)
+    x = DepthwiseConv1D(kernel_size=5, strides=3, activation='relu')(x)
+    x = LayerNormalization(epsilon=1e-6)(x)
+    x = MultiHeadAttention(key_dim=11, num_heads=4, dropout=0.1)(x, x)
+
+    # x = SpatialDropout1D(0.2)(inputs)
+    # x1 = DepthwiseConv1D(kernel_size=3, padding="same", depth_multiplier=8, activation='relu')(x)
+    # x1 = DepthwiseConv1D(kernel_size=3, padding="same", depth_multiplier=2, activation='softmax')(x1)
+    # # x1 = LayerNormalization()(x1)
+    # x2 = DepthwiseConv1D(kernel_size=7, padding="same", depth_multiplier=8, activation='relu')(x)
+    # x2 = DepthwiseConv1D(kernel_size=7, padding="same", depth_multiplier=2, activation='softmax')(x2)
+    # # x2 = LayerNormalization()(x2)
+    # x3 = DepthwiseConv1D(kernel_size=15, padding="same", depth_multiplier=8, activation='relu')(x)
+    # x3 = DepthwiseConv1D(kernel_size=15, padding="same", depth_multiplier=2, activation='softmax')(x3)
+    # # x3 = LayerNormalization()(x3)
+    # x = Concatenate(axis=2)([x1, x2, x3])
+    # x = BatchNormalization()(x)
+
+
+
+    # # Feed Forward Part
+    # x = Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+    # x = Dropout(dropout)(x)
+    # x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+    # x = LayerNormalization(epsilon=1e-6)(x)
+    # res = tf.cast(res, tf.float16)
+    # return x + res
+
+
+    x = GlobalAveragePooling1D(data_format="channels_first")(x)
+
+    # x = LayerNormalization(epsilon=1e-6)(x)
+    # inputs = tf.cast(inputs, tf.float16)
+    # res = x + inputs
+
+    # x = Conv1D(filters=64, kernel_size=7, strides=5, activation='relu')(x)
+    # x = Conv1D(filters=128, kernel_size=7, strides=5, activation='relu')(x)
+    # x = Conv1D(filters=16, kernel_size=7, strides=5, activation='relu')(x)
+    # # x = MaxPool1D(pool_size=3, strides=3)(x)
+    # x = BatchNormalization()(x)
+    # res = x + inputs
+
+    x = Flatten()(x)
+    x = Dense(16, activation='relu')(x)
+    x = Dropout(0.1)(x)
+    x = Dense(1, activation='sigmoid')(x)
+
+    outputs = x
+    model = Model(inputs, outputs)
+    model.summary()
+    return model
+
+
+def custom_VG_residuals2(meta):
+    input_shape = meta["X_shape_"][1:]
+    inputs = Input(shape=input_shape)
+
+    x = SpatialDropout1D(0.2)(inputs)
+    x1 = DepthwiseConv1D(kernel_size=3, padding="same", depth_multiplier=8, activation='relu')(x)
+    x1 = DepthwiseConv1D(kernel_size=3, padding="same", depth_multiplier=2, activation='sigmoid')(x1)
+    # x1 = MaxPool1D(pool_size=7, strides=7)(x1)
+    # x1 = LayerNormalization()(x1)
+    x2 = DepthwiseConv1D(kernel_size=7, padding="same", depth_multiplier=8, activation='relu')(x)
+    x2 = DepthwiseConv1D(kernel_size=7, padding="same", depth_multiplier=2, activation='sigmoid')(x2)
+    # x2 = MaxPool1D(pool_size=7, strides=7)(x2)
+    # x2 = LayerNormalization()(x2)
+    x3 = DepthwiseConv1D(kernel_size=15, padding="same", depth_multiplier=8, activation='relu')(x)
+    x3 = DepthwiseConv1D(kernel_size=15, padding="same", depth_multiplier=2, activation='sigmoid')(x3)
+    # x3 = MaxPool1D(pool_size=7, strides=7)(x3)
+    # x3 = LayerNormalization()(x3)
+    x = Concatenate(axis=2)([x1, x2, x3])
+    x = BatchNormalization()(x)
+
+    x = Conv1D(filters=64, kernel_size=7, strides=5, activation='relu')(x)
+    # x = Conv1D(filters=128, kernel_size=7, strides=5, activation='relu')(x)
+    x = Conv1D(filters=16, kernel_size=3, strides=3, activation='sigmoid')(x)
+    # x = MaxPool1D(pool_size=3, strides=3)(x)
+    x = BatchNormalization()(x)
+    x = Flatten()(x)
+    x = Dropout(0.2)(x)
+    x = Dense(16, activation='sigmoid')(x)
+    x = Dense(1, activation='linear')(x)
+
+    outputs = x
+    model = Model(inputs, outputs)
+    model.summary()
+    return model
 
 
 def bacon_vg(meta):
@@ -282,8 +397,8 @@ def transformer_nirs(
 
 
 def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
-    x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')
-    x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')
+    # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
+    # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
     # Attention and Normalization
     x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
     x = Dropout(dropout)(x)
@@ -421,7 +536,7 @@ def clr(epoch):
     cycle_params = {
         'MIN_LR': 1e-5,
         'MAX_LR': 1e-2,
-        'CYCLE_LENGTH': 256,
+        'CYCLE_LENGTH': 64,
     }
     MIN_LR, MAX_LR, CYCLE_LENGTH = cycle_params['MIN_LR'], cycle_params['MAX_LR'], cycle_params['CYCLE_LENGTH']
     initial_learning_rate = MIN_LR
@@ -435,7 +550,7 @@ def clr(epoch):
 
 
 def nn_list():
-    return [decon]
+    return [custom_VG_residuals]
     # return [vgg1D]
     # return [transformer_vg]
     # return [bacon, decon, transformer]
