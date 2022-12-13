@@ -1,0 +1,17 @@
+{
+    "transformer_vg-transf_set-31441": {
+        "model": "transformer_vg-transf_set-31441",
+        "dataset": "RICE_Redox_3693_Senseen",
+        "seed": "31441",
+        "targetRMSE": "10.267",
+        "RMSE": "259.08286",
+        "MAPE": "0.06487714",
+        "R2": "0.5853933180108511",
+        "MAE": "12.606562",
+        "MSE": "16.09605",
+        "MedAE": "11.0625",
+        "EVS": "0.5856713056564331",
+        "run": "2022-12-10  02:50:53",
+        "training_time": "00:10:18"
+    }
+}

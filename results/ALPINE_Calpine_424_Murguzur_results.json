@@ -1,0 +1,47 @@
+{
+    "decon-decon_set-31441": {
+        "model": "decon-decon_set-31441",
+        "dataset": "ALPINE_Calpine_424_Murguzur",
+        "seed": "31441",
+        "targetRMSE": "1.36",
+        "RMSE": "2.0820775",
+        "MAPE": "0.031551052",
+        "R2": "0.4573640830937026",
+        "MAE": "1.4058332",
+        "MSE": "4.3350463",
+        "MedAE": "0.9718609",
+        "EVS": "0.4576020836830139",
+        "run": "2022-12-10  03:34:43",
+        "training_time": "00:04:34"
+    },
+    "decon-dumb_set-31441": {
+        "model": "decon-dumb_set-31441",
+        "dataset": "ALPINE_Calpine_424_Murguzur",
+        "seed": "31441",
+        "targetRMSE": "1.36",
+        "RMSE": "2.7108655",
+        "MAPE": "0.047035728",
+        "R2": "0.08012082784931152",
+        "MAE": "2.1610115",
+        "MSE": "7.3487916",
+        "MedAE": "1.7564754",
+        "EVS": "0.34727638959884644",
+        "run": "2022-12-10  03:56:54",
+        "training_time": "00:10:50"
+    },
+    "transformer_nirs-transf_set-31441": {
+        "model": "transformer_nirs-transf_set-31441",
+        "dataset": "ALPINE_Calpine_424_Murguzur",
+        "seed": "31441",
+        "targetRMSE": "1.36",
+        "RMSE": "2.7709813",
+        "MAPE": "0.03982918",
+        "R2": "0.03887029526192687",
+        "MAE": "1.7765154",
+        "MSE": "7.6783376",
+        "MedAE": "1.1491051",
+        "EVS": "0.04299658536911011",
+        "run": "2022-12-12  15:35:29",
+        "training_time": "00:02:42"
+    }
+}

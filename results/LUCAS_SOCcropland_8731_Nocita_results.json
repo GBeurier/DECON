@@ -1,0 +1,32 @@
+{
+    "custom_VG_residuals-small_set-31441": {
+        "model": "custom_VG_residuals-small_set-31441",
+        "dataset": "LUCAS_SOCcropland_8731_Nocita",
+        "seed": "31441",
+        "targetRMSE": "3.5",
+        "RMSE": "4.9647894",
+        "MAPE": "69576423000000.0",
+        "R2": "0.5073556256814642",
+        "MAE": "3.483648",
+        "MSE": "24.649136",
+        "MedAE": "2.5906253",
+        "EVS": "0.5094708800315857",
+        "run": "2022-12-12  13:04:01",
+        "training_time": "00:41:14"
+    },
+    "decon-decon_set-31441": {
+        "model": "decon-decon_set-31441",
+        "dataset": "LUCAS_SOCcropland_8731_Nocita",
+        "seed": "31441",
+        "targetRMSE": "3.5",
+        "RMSE": "5.6557527",
+        "MAPE": "69979300000000.0",
+        "R2": "0.36068831052771466",
+        "MAE": "3.9533777",
+        "MSE": "31.987535",
+        "MedAE": "2.978125",
+        "EVS": "0.3609042167663574",
+        "run": "2022-12-10  12:49:26",
+        "training_time": "01:18:00"
+    }
+}
