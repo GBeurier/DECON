@@ -1,8 +1,11 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import os
+import re
 
 # from pinard.utils import load_csv
+
 
 class WrongFormatError(Exception):
     """Exception raised when X et Y datasets are invalid."""
@@ -18,24 +21,13 @@ class WrongFormatError(Exception):
         super().__init__(msg)
 
 
-def load_csv(
-    x_fname,
-    y_fname=None,
-    y_cols=0,
-    *,
-    sep=None,
-    x_hdr=None,
-    y_hdr=None,
-    x_index_col=None,
-    y_index_col=None,
-    autoremove_na=True
-):
+def load_csv(x_fname, y_fname=None, y_cols=0, *, sep=None, x_hdr=None, y_hdr=None, x_index_col=None, y_index_col=None, autoremove_na=True):
     assert y_fname is not None or y_cols is not None
     # TODO - add assert/exceptions on non-numerical columns
     # TODO - better management of NaN and Null (esp exception msg)
 
     x_df = pd.read_csv(x_fname, sep=sep, header=x_hdr, index_col=x_index_col, skip_blank_lines=False)
-    x_df = x_df.replace(r'^\s*$', np.nan, regex=True).apply(pd.to_numeric, args=("coerce",))
+    x_df = x_df.replace(r"^\s*$", np.nan, regex=True).apply(pd.to_numeric, args=("coerce",))
 
     x_data = x_df.astype(np.float32).values
     x_rows_del = []
@@ -54,7 +46,7 @@ def load_csv(
         x_data = np.delete(x_data, y_cols, axis=1)
     else:
         y_df = pd.read_csv(y_fname, sep=sep, header=y_hdr, index_col=y_index_col, skip_blank_lines=False)
-        y_df = y_df.replace(r'^\s*$', np.nan, regex=True).apply(pd.to_numeric, args=("coerce",))
+        y_df = y_df.replace(r"^\s*$", np.nan, regex=True).apply(pd.to_numeric, args=("coerce",))
         y_data = y_df.astype(np.float32).values
         if autoremove_na:
             if len(x_rows_del) > 0:
@@ -77,13 +69,19 @@ def load_csv(
     if len(x_data) != len(y_data):
         raise WrongFormatError(x_data, y_data)
 
-    return x_data, y_data
+    return x_data, y_data.reshape(-1,1)
 
 
 def load_data(path):
-    # Load data
     projdir = Path(path)
-    files = tuple(next(projdir.glob(n)) for n in ["*Xcal*", "*Ycal*", "*Xval*", "*Yval*"])
-    X_train, y_train = load_csv(files[0], files[1], x_hdr=0, y_hdr=0, sep=';')
-    X_valid, y_valid = load_csv(files[2], files[3], x_hdr=0, y_hdr=0, sep=';')
+    files = tuple(next(projdir.glob(n)) for n in ["*Xcal*", "*Ycal*"])
+    X_train, y_train = load_csv(files[0], files[1], x_hdr=0, y_hdr=0, sep=";")
+
+    X_valid, y_valid = np.empty(X_train.shape), np.empty(y_train.shape)
+    regex = re.compile(".*Xval.*")
+    for file in os.listdir(path):
+        if regex.match(file):
+            files = tuple(next(projdir.glob(n)) for n in ["*Xval*", "*Yval*"])
+            X_valid, y_valid = load_csv(files[0], files[1], x_hdr=0, y_hdr=0, sep=";")
+
     return X_train, y_train, X_valid, y_valid
