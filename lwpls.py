@@ -44,37 +44,45 @@ class LWPLS(BaseEstimator, RegressorMixin):
         y = np.reshape(y, (len(y), 1))
         X_test = self.X_test
         nb_test_samples = X_test.shape[0]
-        estimated_y_test = np.zeros((nb_test_samples, self.max_component_number))
+        estimated_y_test = np.zeros(
+            (nb_test_samples, self.max_component_number))
         distance_matrix = cdist(X, X_test, 'euclidean')
-
 
         for test_sample_number in range(nb_test_samples):
             query_x_test = X_test[test_sample_number, :]
             query_x_test = np.reshape(query_x_test, (1, len(query_x_test)))
             distance = distance_matrix[:, test_sample_number]
-            similarity = np.diag(np.exp(-distance / distance.std(ddof=1) / self.lambda_in_similarity))
+            similarity = np.diag(
+                np.exp(-distance / distance.std(ddof=1) / self.lambda_in_similarity))
             # similarity_matrix = np.diag(similarity) ## option
 
             y_w = y.T.dot(np.diag(similarity)) / similarity.sum()
-            x_w = np.reshape(X.T.dot(np.diag(similarity)) / similarity.sum(), (1, X.shape[1]))
+            x_w = np.reshape(X.T.dot(np.diag(similarity)) /
+                             similarity.sum(), (1, X.shape[1]))
             centered_y = y - y_w
             centered_x = X - np.ones((X.shape[0], 1)).dot(x_w)
             centered_query_x_test = query_x_test - x_w
             estimated_y_test[test_sample_number, :] += y_w
 
             for component_number in range(self.max_component_number):
-                w_a = np.reshape(centered_x.T.dot(similarity).dot(centered_y) / np.linalg.norm(centered_x.T.dot(similarity).dot(centered_y)), (X.shape[1], 1))
+                w_a = np.reshape(centered_x.T.dot(similarity).dot(
+                    centered_y) / np.linalg.norm(centered_x.T.dot(similarity).dot(centered_y)), (X.shape[1], 1))
                 t_a = np.reshape(centered_x.dot(w_a), (X.shape[0], 1))
-                p_a = np.reshape(centered_x.T.dot(similarity).dot(t_a) / t_a.T.dot(similarity).dot(t_a), (X.shape[1], 1))
-                q_a = centered_y.T.dot(similarity).dot(t_a) / t_a.T.dot(similarity).dot(t_a)
+                p_a = np.reshape(centered_x.T.dot(similarity).dot(
+                    t_a) / t_a.T.dot(similarity).dot(t_a), (X.shape[1], 1))
+                q_a = centered_y.T.dot(similarity).dot(
+                    t_a) / t_a.T.dot(similarity).dot(t_a)
                 t_q_a = centered_query_x_test.dot(w_a)
-                estimated_y_test[test_sample_number, component_number:] = estimated_y_test[test_sample_number, component_number:] + t_q_a * q_a
+                estimated_y_test[test_sample_number,
+                                 component_number:] = estimated_y_test[test_sample_number, component_number:] + t_q_a * q_a
                 if component_number != self.max_component_number:
                     centered_x = centered_x - t_a.dot(p_a.T)
                     centered_y = centered_y - t_a * q_a
-                    centered_query_x_test = centered_query_x_test - t_q_a.dot(p_a.T)
+                    centered_query_x_test = centered_query_x_test - \
+                        t_q_a.dot(p_a.T)
 
-        self.y_test_predict_ = estimated_y_test[:, component_number - 1] * y.std(ddof=1) + y.mean()
+        self.y_test_predict_ = estimated_y_test[:,
+                                                component_number - 1] * y.std(ddof=1) + y.mean()
 
     def predict(self, X):
         check_is_fitted(self)
