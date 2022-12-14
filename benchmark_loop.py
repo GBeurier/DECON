@@ -22,7 +22,7 @@ from sklearn.metrics import (
     mean_squared_log_error,
     median_absolute_error,
 )
-from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import RepeatedKFold, StratifiedKFold, RepeatedStratifiedKFold
 from sklearn.pipeline import Pipeline
 import tensorflow as tf
 
@@ -33,6 +33,25 @@ from pinard import augmentation, sklearn, model_selection
 
 tf.get_logger().setLevel("ERROR")
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
+
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.preprocessing import KBinsDiscretizer
+
+
+class regressor_stratified_cv:
+    def __init__(self,n_splits=10,n_repeats=2,group_count=10,random_state=0,strategy='quantile'):
+        self.group_count=group_count
+        self.strategy=strategy
+        self.cvkwargs=dict(n_splits=n_splits,n_repeats=n_repeats,random_state=random_state)
+        self.cv=RepeatedStratifiedKFold(**self.cvkwargs)
+        self.discretizer=KBinsDiscretizer(n_bins=self.group_count,encode='ordinal',strategy=self.strategy)  
+            
+    def split(self,X,y,groups=None):
+        kgroups=self.discretizer.fit_transform(y[:,None])[:,0]
+        return self.cv.split(X,kgroups,groups)
+    
+    def get_n_splits(self,X,y,groups=None):
+        return self.cv.get_n_splits(X,y,groups)
 
 
 def get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred):
@@ -208,9 +227,11 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                 folds_size = 1
                 name_cv = "NoCV"
                 if cv_config is not None:
-                    folder = RepeatedKFold(random_state=SEED, **cv_config)
-                    folds_size = folder.get_n_splits()
-                    folds = folder.split(X_train)
+                    cv = RepeatedKFold(random_state=SEED, **cv_config)
+                    folds = cv.split(X_train)
+                    # cv = regressor_stratified_cv(**cv_config, group_count=5, random_state=SEED, strategy='uniform')
+                    # folds = cv.split(X_train, y_train)
+                    folds_size = cv.get_n_splits()
                     name_cv = "CV_" + str(cv_config['n_splits']) + "_" + str(cv_config['n_repeats'])
                 
                 # Loop data
