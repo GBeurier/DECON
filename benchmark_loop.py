@@ -102,7 +102,7 @@ def callback_predict(epoch, val_loss):
 
 
 def evaluate_pipeline(desc, model_name, data, transformers):
-    print("<", model_name, ">")
+    # print("<", model_name, ">")
     start_time = time.time()
 
     # Unpack args
@@ -140,26 +140,19 @@ def evaluate_pipeline(desc, model_name, data, transformers):
     return y_pred
 
 
-# Data X_Y (train_test) - datapath + names ?
-# SEED
-# Augmentation_list
-# PP list
-# Model
-### Fit (single, CV)
-# Data results - resultpath
-
-
-def augment_dataset():
-    if augmentations == None or len(augmentations) == 0:
-        augmentations = [None]
-
-    for augmentation in augmentation:
+def get_augmentation(augmentation_config):
+    if augmentation_config is None:
+        return "NoAug", None
+    augmentation_array = []
+    name_augmentation = "Aug"
+    for aug in augmentation_config:
         if augmentation is not None:
-            augmentation_pipeline = sklearn.SampleAugmentation(augmentation)
-            print(X_train.shape, y_train.shape)
-            X_train, y_train = augmentation_pipeline.transform(X_train, y_train)
-            print("augmented to:", X_train.shape, y_train.shape)
-        preprocess_dataset()
+            transfo_name_b = str(type(aug[1])).split('.')[-1].split('_')
+            transfo_name = "".join([c[0] for c in transfo_name_b])
+            name_augmentation += "_" + str(aug[0]) + transfo_name
+            augmentation_array.append((aug[0], name_augmentation, aug[1]))
+
+    return name_augmentation, sklearn.SampleAugmentation(augmentation_array)
 
 
 def init_log(path):
@@ -181,141 +174,102 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
     tf.random.set_seed(SEED)
 
     for path in dataset_list:
-        ## Infos
+        # Infos
         dataset_name, results, results_file = init_log(path)
-        desc = (dataset_name, path, results_file, results)
+        desc = (dataset_name, path, results_file, results, SEED)
 
-        ## Load data
-        print("=" * 10, str(dataset_name).upper(), end=" ")
+        # Load data
+        print("="*10, str(dataset_name).upper(), end=" ")
         X, y, X_valid, y_valid = load_data(path)
-        print(X.shape, y.shape, X_valid.shape, y_valid.shape, "=" * 10)
+        print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
 
-        ## Split data
+        # Split data
         for split_config in split_configs:
-            print("split>", split_config)
+            # print("Split >", split_config)
             X_train, y_train, X_test, y_test = X, y, X_valid, y_valid
+            name_split = "NoSpl"
             if split_config is not None:
                 train_index, test_index = model_selection.train_test_split_idx(X, y=y, **split_config)
                 X_train, y_train, X_test, y_test = X[train_index], y[train_index], X[test_index], y[test_index]
 
-                ## Replace validation set by test set if validation set is empty
+                # Replace validation set by test set if validation set is empty
                 if X_valid.size == 0:
                     X_valid, y_valid = X_test, y_test
 
-            print(X_train.shape, y_train.shape, X_test.shape, y_test.shape, X_valid.shape, y_valid.shape)
+                name_split = 'Spl_' + str(split_config['method']) + "_" + str(hash(frozenset(split_config)))[0:3]
 
-        #     ## Generate training sets
-        #     for cv_config in cv_configs:
-        #         fold = iter([])
+            # print("Split >", X_train.shape, y_train.shape, X_test.shape, y_test.shape, X_valid.shape, y_valid.shape)
+            
+            # Generate training sets
+            for cv_config in cv_configs:
+                # print("CV >", cv_config)
 
-        # ## Generate train/test
-        # datasets_indices = []
-        # if "cross_validation" not in training_config:
-        #     train, test = np.arange(len(y), len(y_valid))
-        #     datasets.append((train, test))
-        # else:
-        #     pass
+                folds = iter([([],[])])
+                folds_size = 1
+                name_cv = "NoCV"
+                if cv_config is not None:
+                    folder = RepeatedKFold(random_state=SEED, **cv_config)
+                    folds_size = folder.get_n_splits()
+                    folds = folder.split(X_train)
+                    name_cv = "CV_" + str(cv_config['n_splits']) + "_" + str(cv_config['n_repeats'])
+                
+                # Loop data
+                fold_i = 1
+                cv_predictions = {}
+                for train_index, test_index in folds:
+                    if len(train_index) > 0:
+                        X_tr, y_tr, X_te, y_te = X_train[train_index], y_train[train_index], X_train[test_index], y_train[test_index]
+                    else:
+                        X_tr, y_tr, X_te, y_te = X_train, y_train, X_test, y_test
 
-        # if augment:
-        #     augmentation_pipeline = sklearn.SampleAugmentation(
-        #         [
-        #             (2, "rot_tr", augmentation.Rotate_Translate()),
-        #             (1, "rd_mult", augmentation.Random_X_Operation()),
-        #             (1, "simpl", augmentation.Random_Spline_Addition()),
-        #         ]
-        #     )
-        #     print(X_train.shape, y_train.shape)
-        #     X_train, y_train = augmentation_pipeline.transform(X_train, y_train)
-        #     print("augmented to:", X_train.shape, y_train.shape)
+                    name_fold = "Fold_" + str(fold_i) + '(' + str(folds_size) + ')'
+                    # print(name_fold, X_tr.shape, y_tr.shape, X_te.shape, y_te.shape)
+                    fold_i += 1
+                    
+                    # Loop augmentations
+                    for augmentation_config in augmentations:
+                        name_augmentation, augmentation_pipeline = get_augmentation(augmentation_config)
+                        if augmentation_pipeline is not None:
+                            X_tr, y_tr = augmentation_pipeline.transform(X_tr, y_tr)
+                        # print(name_augmentation, X_tr.shape, y_tr.shape)
+                        data = (X_tr, y_tr, X_valid, y_valid)
 
-        # data = (X_train, y_train, X_valid, y_valid)
-        # for preprocessing in preprocessing_list:
-        #     ##### DEEP LEARNING #####
-        #     X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
-        #         preprocessing, X_train, y_train, X_test, y_test, type="augmentation"
-        #     )
-        #     for model_desc in nn_list():
-        #         model_name = model_desc.__name__ + "-" + preprocessing.__name__ + "-" + str(SEED)
-        #         if os.path.isfile("results/" + dataset_name + "/" + model_name + ".csv"):
-        #             # print("Skipping", model_name)
-        #             continue
+                        # Loop preprocessing
+                        for preprocessing in preprocessings:
+                            name_preprocessing = 'PP_' + str(len(preprocessing)) + "_" + str(hash(frozenset(preprocessing)))[0:5]
 
-        #         # batch_size = 3000
-        #         # if preprocessing.__name__ == "dumb_set":
-        #         #     batch_size = 3
-        #         regressor = get_keras_model(
-        #             dataset_name + "_" + model_name,
-        #             model_desc,
-        #             4096,
-        #             batch_size,
-        #             X_test_pp,
-        #             y_test_pp,
-        #             transfer=True,
-        #             callback_func=callback_predict,
-        #             verbose=0,
-        #             seed=SEED,
-        #         )
-        #         transformers = (y_scaler, transformer_pipeline, regressor)
-        #         evaluate_pipeline(desc, model_name, data, transformers)
+                            for model in models:
+                                name_model = model[0].name()
+                                if isinstance(model[0], regressors.NN_NIRS_Regressor):
+                                    # print(name_model, "is Neural Net")
+                                    X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
+                                        preprocessing, X_tr, y_tr, X_te, y_te, type="augmentation"
+                                    )
+                                else:
+                                    # print(name_model, "is Machine Learning")
+                                    X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
+                                        preprocessing, X_tr, y_tr, X_te, y_te, type="union"
+                                    )
 
-        #     # ##### MACHINE LEARNING #####
-        #     # X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="union")
-        #     # for regressor, mdl_name in ml_list(SEED, X_test_pp, y_test_pp):
-        #     #     model_name = mdl_name + "-" + preprocessing.__name__ + "-" + str(SEED)
-        #     #     if os.path.isfile(  "results/" + dataset_name + "/" + model_name + '.csv'):
-        #     #        # print("Skipping", model_name)
-        #     #         continue
-        #     #     transformers = (y_scaler, transformer_pipeline, regressor)
-        #     #     evaluate_pipeline(desc, model_name, data, transformers)
+                                run_desc = "-".join([name_model, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED)])
+                                run_key = "-".join([name_model, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED)])
 
-        # #########################
+                                run_name = run_desc + "_" + datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
+                                print(run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
 
-        # #########################
-        # ### CROSS VALIDATION TRAINING
-        # cv_predictions = {}
-        # for preprocessing in preprocessing_list():
-        #     fold = RepeatedKFold(n_splits=5, n_repeats=2, random_state=SEED)
-        #     fold_index = 0
-        #     for train_index, test_index in fold.split(X):
-        #         X_train, y_train, X_test, y_test = X[train_index], y[train_index], X[test_index], y[test_index]
-        #         data = (X_train, y_train, X_valid, y_valid)
+                                regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=callback_predict, params=model[1])
+                                transformers = (y_scaler, transformer_pipeline, regressor)
 
-        #         ##### DEEP LEARNING #####
-        #         X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
-        #             preprocessing, X_train, y_train, X_test, y_test, type="augmentation"
-        #         )
-        #         for model_desc in nn_list():
-        #             model_name = model_desc.__name__ + "-" + preprocessing.__name__ + "-" + str(SEED)
-        #             fold_name = model_name + "-F" + str(fold_index)
-        #             if os.path.isfile("results/" + dataset_name + "/" + fold_name + ".csv"):
-        #                 # print("Skipping", model_name)
-        #                 continue
-        #             regressor = get_keras_model(dataset_name + "_" + fold_name, model_desc, 7500, 750, X_test_pp, y_test_pp, verbose=0, seed=SEED)
-        #             y_pred = evaluate_pipeline(desc, fold_name, data, (y_scaler, transformer_pipeline, regressor))
-        #             cv_predictions[model_name] = cv_predictions[model_name] + y_pred if model_name in cv_predictions else y_pred
+                                y_pred = evaluate_pipeline(desc, run_name, data, transformers)
+                                cv_predictions[run_key] = cv_predictions[run_key] + y_pred if run_key in cv_predictions else y_pred
+                
 
-        #         ##### MACHINE LEARNING #####
-        #         X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
-        #             preprocessing, X_train, y_train, X_test, y_test, type="union"
-        #         )
-        #         for regressor, mdl_name in ml_list(SEED, X_test_pp, y_test_pp):
-        #             model_name = mdl_name + "-" + preprocessing.__name__ + "-" + str(SEED)
-        #             fold_name = model_name + "-F" + str(fold_index)
-        #             if os.path.isfile("results/" + dataset_name + "/" + fold_name + ".csv"):
-        #                 #  print("Skipping", model_name)
-        #                 continue
-        #             y_pred = evaluate_pipeline(desc, fold_name, data, (y_scaler, transformer_pipeline, regressor))
-        #             cv_predictions[model_name] = cv_predictions[model_name] + y_pred if model_name in cv_predictions else y_pred
+                for key, val in cv_predictions.items():
+                    y_pred = val / folds_size
+                    datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
+                    results[key + "_CV"] = datasheet
 
-        #         fold_index += 1
+                results = OrderedDict(sorted(results.items(), key=lambda k_v: float(k_v[1]["RMSE"])))
+                with open(results_file, "w") as fp:
+                    json.dump(results, fp, indent=4)
 
-        # for key, val in cv_predictions.items():
-        #     y_pred = val / fold.get_n_splits()
-        #     datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
-        #     results[key + "_CV"] = datasheet
-
-        # results = OrderedDict(sorted(results.items(), key=lambda k_v: float(k_v[1]["RMSE"])))
-        # with open(global_result_file, "w") as fp:
-        #     json.dump(results, fp, indent=4)
-
-        # # #########################

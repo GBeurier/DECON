@@ -2,6 +2,7 @@ import datetime
 import inspect
 import math
 import numpy as np
+import re
 
 from sklearn.cross_decomposition import PLSRegression
 from xgboost import XGBRegressor
@@ -42,9 +43,9 @@ from lwpls import LWPLS
 class Auto_Save(Callback):
     best_weights = []
 
-    def __init__(self, model_func, shape, cb_func=None):
+    def __init__(self, model_name, shape, cb_func=None):
         super(Auto_Save, self).__init__()
-        self.model_name = model_func.__name__
+        self.model_name = model_name
         self.shape = shape
         self.best = np.Inf
         self.cb = cb_func
@@ -76,69 +77,73 @@ class Print_LR(Callback):
             print("Iteration {} - Learning rate: {}".format(iteration, lr))
 
 
-class NIRS_Regressor:
-    def __init__(self, cb=None, *, params={}, name=""):
-        self.cb = cb
-        self.params = params
-        self.name = name
+def rmse_loss(y_true, y_pred):
+    return tf.sqrt(tf.reduce_mean((y_true - y_pred) ** 2))
 
-    def model(self, X_Train, y_train=None, X_Test=None, y_test=None, *, params=None):
-        pass
-
-    def model_name(self):
-        if len(self.name) > 0:
-            return self.name
-        return self.__name__
+# def coeff_determination(y_true, y_pred):
+#     # SS_res = tf.sum(tf.square(y_true - y_pred))
+#     # SS_tot = tf.sum(tf.square(y_true - tf.mean(y_true)))
+#     # return (1 - SS_res/(SS_tot + tf.epsilon()))
 
 
-class NN_NIRS_Regressor(NIRS_Regressor):
-    def rmse_loss(y_true, y_pred):
-        return tf.sqrt(tf.reduce_mean((y_true - y_pred) ** 2))
-
-    # def coeff_determination(y_true, y_pred):
-    #     # SS_res = tf.sum(tf.square(y_true - y_pred))
-    #     # SS_tot = tf.sum(tf.square(y_true - tf.mean(y_true)))
-    #     # return (1 - SS_res/(SS_tot + tf.epsilon()))
-
-    def scale_fn(x):
-        # return 1. ** x
-        return 1 / (2.0 ** (x - 1))
+def scale_fn(x):
+    # return 1. ** x
+    return 1 / (2.0 ** (x - 1))
 
     # def calc_lr(step, warmup_steps=200):
     #     return 2**(-0.5) * min(step**(-0.5), (step+1) * warmup_steps**(-1.5))
 
-    def clr(epoch):
-        cycle_params = {
-            "MIN_LR": 1e-5,
-            "MAX_LR": 1e-2,
-            "CYCLE_LENGTH": 64,
-        }
-        MIN_LR, MAX_LR, CYCLE_LENGTH = (
-            cycle_params["MIN_LR"],
-            cycle_params["MAX_LR"],
-            cycle_params["CYCLE_LENGTH"],
-        )
-        initial_learning_rate = MIN_LR
-        maximal_learning_rate = MAX_LR
-        step_size = CYCLE_LENGTH
-        step_as_dtype = float(epoch)
-        cycle = math.floor(1 + step_as_dtype / (2 * step_size))
-        x = abs(step_as_dtype / step_size - 2 * cycle + 1)
-        mode_step = cycle  # if scale_mode == "cycle" else step
-        return initial_learning_rate + (maximal_learning_rate - initial_learning_rate) * max(0, (1 - x)) * scale_fn(mode_step)
+
+def clr(epoch):
+    cycle_params = {
+        "MIN_LR": 1e-5,
+        "MAX_LR": 1e-2,
+        "CYCLE_LENGTH": 64,
+    }
+    MIN_LR, MAX_LR, CYCLE_LENGTH = (
+        cycle_params["MIN_LR"],
+        cycle_params["MAX_LR"],
+        cycle_params["CYCLE_LENGTH"],
+    )
+    initial_learning_rate = MIN_LR
+    maximal_learning_rate = MAX_LR
+    step_size = CYCLE_LENGTH
+    step_as_dtype = float(epoch)
+    cycle = math.floor(1 + step_as_dtype / (2 * step_size))
+    x = abs(step_as_dtype / step_size - 2 * cycle + 1)
+    mode_step = cycle  # if scale_mode == "cycle" else step
+    return initial_learning_rate + (maximal_learning_rate - initial_learning_rate) * max(0, (1 - x)) * scale_fn(mode_step)
+
+
+class NIRS_Regressor:
+    def __init__(self, *, params={}, name=""):
+        self.params = params
+        self.name_ = name
+
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None):
+        pass
+
+    def name(self):
+        if len(self.name_) > 0:
+            return self.name_
+        return re.search(".*'(.*)'.*", str(self.__class__)).group(1).split('.')[-1]
+
+
+class NN_NIRS_Regressor(NIRS_Regressor):
+   
 
     def build_model(self, input_shape, params):
         return None
 
-    def model(self, X_Train, y_train=None, X_test=None, y_test=None, *, params=None):
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="default_run", cb=None, params=None):
 
         early_stop = EarlyStopping(monitor="val_loss", patience=256, verbose=0, mode="min")
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
-        lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
-        auto_save = Auto_Save(model_func, X_test.shape, callback_func)
-        callbacks = [auto_save, early_stop, tensorboard_callback, lrScheduler]
         log_dir = "logs/fit/" + run_name + "/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        model_inst = self.build_model(X_Train.shape[1:], params)
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=10)
+        lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
+        auto_save = Auto_Save(self.name(), X_test.shape, cb)
+        callbacks = [auto_save, early_stop, tensorboard_callback, lrScheduler]
+        model_inst = self.build_model(X_test.shape[1:], params)
 
         trainableParams = np.sum([np.prod(v.get_shape()) for v in model_inst.trainable_weights])
         nonTrainableParams = np.sum([np.prod(v.get_shape()) for v in model_inst.non_trainable_weights])
@@ -646,15 +651,17 @@ class Transformer_Max(Abstract_Transformer):
 
 
 class ML_Regressor(NIRS_Regressor):
-    def __init__(self, model_class, model_params, cb=None, *, params={}, name=""):
+    def __init__(self, model_class, *, params={}, name=""):
         self.model_class = model_class
-        self.model_params = model_params
-        super(cb, params=params, name=name)
+        NIRS_Regressor.__init__(self, params=params, name=name)
 
-    def model(self, X_Train, y_train=None, X_Test=None, y_test=None, *, params=None):
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None):
         signature = inspect.signature(self.model_class.__init__)
-        print(signature)
-        return self.model_class(*self.model_params)
+        # print(signature)
+        return self.model_class(**params)
+
+    def name(self):
+        return re.search(".*'(.*)'.*", str(self.model_class)).group(1)
 
 
 # def pls_generator(start, end, step):

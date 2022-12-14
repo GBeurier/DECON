@@ -112,19 +112,15 @@ def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="a
     y_valid = y_scaler.transform(y_test.reshape((-1, 1)))
 
     if type == "augmentation":
-        transformer_pipeline = Pipeline(
-            [
+        transformer_pipeline = Pipeline([
                 ("scaler", MinMaxScaler()),
-                ("preprocessing", FeatureAugmentation(preprocessing())),
-            ]
-        )
+                ("preprocessing", FeatureAugmentation(preprocessing)),
+        ])
     else:
-        transformer_pipeline = Pipeline(
-            [
+        transformer_pipeline = Pipeline([
                 ("scaler", MinMaxScaler()),
-                ("preprocessing", FeatureUnion(preprocessing())),
-            ]
-        )
+                ("preprocessing", FeatureUnion(preprocessing)),
+        ])
 
     transformer_pipeline.fit(X_train)
     X_valid = transformer_pipeline.transform(X_test)
