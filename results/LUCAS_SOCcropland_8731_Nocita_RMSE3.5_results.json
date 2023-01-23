@@ -1,0 +1,18 @@
+{
+    "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-8176-31441-23-01-22_11-06-05": {
+        "model": "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-8176-31441-23-01-22_11-06-05",
+        "dataset": "LUCAS_SOCcropland_8731_Nocita_RMSE3.5",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "4.323989",
+        "MAPE": "59813434000000.0",
+        "R2": "0.6263190414572841",
+        "MAE": "2.9292948",
+        "MSE": "18.69688",
+        "MedAE": "2.0671873",
+        "EVS": "0.6336742639541626",
+        "run": "2023-01-22  12:25:27",
+        "path": "data/regression\\LUCAS_SOCcropland_8731_Nocita_RMSE3.5",
+        "training_time": "01:19:22"
+    }
+}

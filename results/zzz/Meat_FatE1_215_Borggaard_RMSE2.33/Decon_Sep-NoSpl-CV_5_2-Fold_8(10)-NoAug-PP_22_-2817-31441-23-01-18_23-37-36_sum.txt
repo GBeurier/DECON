@@ -1,0 +1,51 @@
+Model: "sequential_83"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ spatial_dropout1d_60 (Spati  (None, 100, 22)          0         
+ alDropout1D)                                                    
+                                                                 
+ separable_conv1d_336 (Separ  (None, 50, 64)           94400     
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_381 (Ba  (None, 50, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_337 (Separ  (None, 25, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_382 (Ba  (None, 25, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_338 (Separ  (None, 25, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_383 (Ba  (None, 25, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_339 (Separ  (None, 25, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_384 (Ba  (None, 25, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ conv1d_83 (Conv1D)          (None, 13, 32)            10272     
+                                                                 
+ flatten_83 (Flatten)        (None, 416)               0         
+                                                                 
+ batch_normalization_385 (Ba  (None, 416)              1664      
+ tchNormalization)                                               
+                                                                 
+ dense_249 (Dense)           (None, 128)               53376     
+                                                                 
+ dense_250 (Dense)           (None, 32)                4128      
+                                                                 
+ dropout_83 (Dropout)        (None, 32)                0         
+                                                                 
+ dense_251 (Dense)           (None, 1)                 33        
+                                                                 
+=================================================================
+Total params: 988,385
+Trainable params: 987,041
+Non-trainable params: 1,344
+_________________________________________________________________

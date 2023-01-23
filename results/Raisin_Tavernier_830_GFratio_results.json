@@ -1,0 +1,33 @@
+{
+    "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-6277-31441-23-01-19_02-07-17": {
+        "model": "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-6277-31441-23-01-19_02-07-17",
+        "dataset": "Raisin_Tavernier_830_GFratio",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "0.13753343",
+        "MAPE": "0.060595404",
+        "R2": "0.9121328094842195",
+        "MAE": "0.08626153",
+        "MSE": "0.018915443",
+        "MedAE": "0.05837059",
+        "EVS": "0.9134419560432434",
+        "run": "2023-01-19  02:30:33",
+        "path": "data/regression\\Raisin_Tavernier_830_GFratio",
+        "training_time": "00:23:15"
+    },
+    "Decon_Sep-NoSpl-CV_4_2-NoAug-PP_22_-6277-31441-23-01-19_02-30-33_CV": {
+        "model": "Decon_Sep-NoSpl-CV_4_2-NoAug-PP_22_-6277-31441-23-01-19_02-30-33",
+        "dataset": "Raisin_Tavernier_830_GFratio",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "0.15564737",
+        "MAPE": "0.062080394",
+        "R2": "0.8874634011830531",
+        "MAE": "0.09018202",
+        "MSE": "0.024226101",
+        "MedAE": "0.05480349",
+        "EVS": "0.8912845849990845",
+        "run": "2023-01-19  03:26:16",
+        "path": "data/regression\\Raisin_Tavernier_830_GFratio"
+    }
+}

@@ -12,6 +12,10 @@ from contextlib import redirect_stdout
 # import joblib
 # import pickle
 
+# import signal
+# import time
+# import sys
+
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.metrics import (
     mean_absolute_error,
@@ -31,8 +35,7 @@ from preprocessings import transform_test_data
 import regressors
 from pinard import augmentation, sklearn, model_selection
 
-tf.get_logger().setLevel("ERROR")
-tf.keras.mixed_precision.set_global_policy("mixed_float16")
+
 
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.preprocessing import KBinsDiscretizer
@@ -59,7 +62,8 @@ def get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred):
         "model": model_name,
         "dataset": dataset_name,
         "seed": str(SEED),
-        "targetRMSE": str(float(os.path.split(path)[-1].split("_")[-1].split("RMSE")[-1])),
+        "targetRMSE": "Unknown",
+        # "targetRMSE": str(float(os.path.split(path)[-1].split("_")[-1].split("RMSE")[-1])),
         "RMSE": str(mean_squared_error(y_valid, y_pred, squared=False)),
         "MAPE": str(mean_absolute_percentage_error(y_valid, y_pred)),
         "R2": str(r2_score(y_valid, y_pred)),
@@ -69,20 +73,21 @@ def get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred):
         "EVS": str(explained_variance_score(y_valid, y_pred)),
         # "MSLE":str(mean_squared_log_error(y_valid, y_pred)),
         "run": datetime.datetime.now().strftime("%Y-%m-%d  %H:%M:%S"),
+        "path": path,
     }
 
 
 def log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time):
     datasheet = get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred)
     # Save data
-    folder = "results/" + dataset_name
+    folder = os.path.join("results", dataset_name)
     if not os.path.isdir(folder):
         os.makedirs(folder)
 
     canon_name = folder + "/" + model_name
 
     # save predictions
-    np.savetxt(canon_name + ".csv", np.column_stack((y_valid, y_pred)))
+    np.savetxt(canon_name + ".csv", np.column_stack((y_valid, y_pred)), delimiter=";")
 
     # save main metrics globally
     result_file = open(folder + "/_runs.txt", "a")
@@ -111,17 +116,25 @@ current_y_test = None
 current_path = None
 
 
-def callback_predict(epoch, val_loss):
-    if current_estimator is None:
-        return
+def get_callback_predict(dataset_name, model_name, path, SEED):
 
-    y_pred = current_estimator.predict(current_X_test)
-    res = get_datasheet("", "", current_path, -1, current_y_test, y_pred)
-    print("Epoch:", epoch, "> RMSE:", res["RMSE"], "(", res["targetRMSE"], ") - R²:", res["R2"], " val_loss", val_loss)
+    def callback_predict(epoch, val_loss):
+        if current_estimator is None:
+            return
+
+        y_pred = current_estimator.predict(current_X_test)
+        res = get_datasheet("", "", current_path, -1, current_y_test, y_pred)
+        print("Epoch:", epoch, "> RMSE:", res["RMSE"], "(", res["targetRMSE"], ") - R²:", res["R2"], " val_loss", val_loss)
+
+        if epoch > 15:
+            log_run(dataset_name, model_name, path, SEED, current_y_test, y_pred, 0)
+
+        return res
+
+    return callback_predict
 
 
 def evaluate_pipeline(desc, model_name, data, transformers):
-    # print("<", model_name, ">")
     start_time = time.time()
 
     # Unpack args
@@ -156,7 +169,7 @@ def evaluate_pipeline(desc, model_name, data, transformers):
         json.dump(results, fp, indent=4)
 
     print(datasheet["RMSE"], " (", datasheet["targetRMSE"], ") in", datasheet["training_time"])
-    return y_pred
+    return y_pred, datasheet
 
 
 def get_augmentation(augmentation_config):
@@ -176,7 +189,7 @@ def get_augmentation(augmentation_config):
 
 def init_log(path):
     ### DATASET in the form (name)_RMSE(val)
-    dataset_name = ("_").join(os.path.split(path)[-1].split("_")[:-1])
+    dataset_name = os.path.split(path)[-1]
 
     ### Get global results database for this dataset
     global_result_file = "results/" + dataset_name + "_results.json"
@@ -195,6 +208,9 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
     for path in dataset_list:
         # Infos
         dataset_name, results, results_file = init_log(path)
+        folder = os.path.join("results", dataset_name)
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
         desc = (dataset_name, path, results_file, results, SEED)
 
         # Load data
@@ -226,6 +242,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                 folds = iter([([],[])])
                 folds_size = 1
                 name_cv = "NoCV"
+                time_str_cv = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
                 if cv_config is not None:
                     cv = RepeatedKFold(random_state=SEED, **cv_config)
                     folds = cv.split(X_train)
@@ -257,7 +274,9 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
 
                         # Loop preprocessing
                         for preprocessing in preprocessings:
-                            name_preprocessing = 'PP_' + str(len(preprocessing)) + "_" + str(hash(frozenset(preprocessing)))[0:5]
+                            name_preprocessing = 'NoPP_'
+                            if preprocessing is not None:
+                                name_preprocessing = 'PP_' + str(len(preprocessing)) + "_" + str(hash(frozenset(preprocessing)))[0:5]
 
                             for model in models:
                                 name_model = model[0].name()
@@ -272,25 +291,31 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                         preprocessing, X_tr, y_tr, X_te, y_te, type="union"
                                     )
 
-                                run_desc = "-".join([name_model, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED)])
-                                run_key = "-".join([name_model, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED)])
+                                time_str = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
+                                run_name = "-".join([name_model, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
+                                run_key = "-".join([name_model, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
 
-                                run_name = run_desc + "_" + datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
                                 print(run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
 
-                                regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=callback_predict, params=model[1])
+                                cb_predict = get_callback_predict(dataset_name, name_model, path, SEED)
+                                regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc)
                                 transformers = (y_scaler, transformer_pipeline, regressor)
 
-                                y_pred = evaluate_pipeline(desc, run_name, data, transformers)
-                                cv_predictions[run_key] = cv_predictions[run_key] + y_pred if run_key in cv_predictions else y_pred
+                                y_pred, datasheet = evaluate_pipeline(desc, run_name, data, transformers)
+                                if name_cv != "NoCV":
+                                    if run_key not in cv_predictions:
+                                        cv_predictions[run_key] = []
+                                    cv_predictions[run_key].append({'pred': y_pred, 'RMSE': float(datasheet['RMSE'])})
                 
-
-                for key, val in cv_predictions.items():
-                    y_pred = val / folds_size
-                    datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
-                    results[key + "_CV"] = datasheet
+                if name_cv != "NoCV":
+                    for key, val in cv_predictions.items():
+                        RMSE_TOT = sum(item['RMSE'] for item in val)
+                        factor = 1. / (len(val) - 1)
+                        weights = [factor * (RMSE_TOT - item['RMSE']) / RMSE_TOT for item in val]
+                        y_pred = np.sum([weights[i]*val[i]['pred'] for i in range(len(val))], axis=0)
+                        datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
+                        results[key + "_CV"] = datasheet
 
                 results = OrderedDict(sorted(results.items(), key=lambda k_v: float(k_v[1]["RMSE"])))
                 with open(results_file, "w") as fp:
                     json.dump(results, fp, indent=4)
-

@@ -1,0 +1,51 @@
+Model: "sequential_168"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ spatial_dropout1d_145 (Spat  (None, 125, 22)          0         
+ ialDropout1D)                                                   
+                                                                 
+ separable_conv1d_676 (Separ  (None, 63, 64)           94400     
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_806 (Ba  (None, 63, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_677 (Separ  (None, 32, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_807 (Ba  (None, 32, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_678 (Separ  (None, 32, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_808 (Ba  (None, 32, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_679 (Separ  (None, 32, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_809 (Ba  (None, 32, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ conv1d_168 (Conv1D)         (None, 16, 32)            10272     
+                                                                 
+ flatten_168 (Flatten)       (None, 512)               0         
+                                                                 
+ batch_normalization_810 (Ba  (None, 512)              2048      
+ tchNormalization)                                               
+                                                                 
+ dense_504 (Dense)           (None, 128)               65664     
+                                                                 
+ dense_505 (Dense)           (None, 32)                4128      
+                                                                 
+ dropout_168 (Dropout)       (None, 32)                0         
+                                                                 
+ dense_506 (Dense)           (None, 1)                 33        
+                                                                 
+=================================================================
+Total params: 1,001,057
+Trainable params: 999,521
+Non-trainable params: 1,536
+_________________________________________________________________

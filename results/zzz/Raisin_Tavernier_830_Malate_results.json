@@ -1,0 +1,18 @@
+{
+    "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-5475-31441_23-01-18_22-32-12": {
+        "model": "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-5475-31441_23-01-18_22-32-12",
+        "dataset": "Raisin_Tavernier_830_Malate",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "138.20407",
+        "MAPE": "1.0867535",
+        "R2": "-0.6637607310597553",
+        "MAE": "93.876205",
+        "MSE": "19100.365",
+        "MedAE": "49.976475",
+        "EVS": "0.041407883167266846",
+        "run": "2023-01-18  22:38:18",
+        "path": "data/regression\\Raisin_Tavernier_830_Malate",
+        "training_time": "00:06:05"
+    }
+}

@@ -1,0 +1,54 @@
+Model: "sequential_44"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ spatial_dropout1d_21 (Spati  (None, 125, 5)           0         
+ alDropout1D)                                                    
+                                                                 
+ separable_conv1d_173 (Separ  (None, 125, 64)          21504     
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_182 (Ba  (None, 125, 64)          256       
+ tchNormalization)                                               
+                                                                 
+ max_pooling1d_129 (MaxPooli  (None, 63, 64)           0         
+ ng1D)                                                           
+                                                                 
+ separable_conv1d_174 (Separ  (None, 63, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_183 (Ba  (None, 63, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ max_pooling1d_130 (MaxPooli  (None, 32, 64)           0         
+ ng1D)                                                           
+                                                                 
+ separable_conv1d_175 (Separ  (None, 32, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ max_pooling1d_131 (MaxPooli  (None, 16, 64)           0         
+ ng1D)                                                           
+                                                                 
+ batch_normalization_184 (Ba  (None, 16, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ conv1d_44 (Conv1D)          (None, 8, 32)             6176      
+                                                                 
+ batch_normalization_185 (Ba  (None, 8, 32)            128       
+ tchNormalization)                                               
+                                                                 
+ flatten_44 (Flatten)        (None, 256)               0         
+                                                                 
+ dense_132 (Dense)           (None, 128)               32896     
+                                                                 
+ dense_133 (Dense)           (None, 32)                4128      
+                                                                 
+ dropout_44 (Dropout)        (None, 32)                0         
+                                                                 
+ dense_134 (Dense)           (None, 1)                 33        
+                                                                 
+=================================================================
+Total params: 614,625
+Trainable params: 614,177
+Non-trainable params: 448
+_________________________________________________________________

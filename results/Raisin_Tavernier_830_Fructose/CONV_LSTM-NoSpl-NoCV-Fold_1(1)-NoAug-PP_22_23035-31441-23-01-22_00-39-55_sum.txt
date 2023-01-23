@@ -1,0 +1,81 @@
+Model: "model_1"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_8 (InputLayer)           [(None, 125, 22)]    0           []                               
+                                                                                                  
+ separable_conv1d_14 (Separable  (None, 125, 64)     94400       ['input_8[0][0]']                
+ Conv1D)                                                                                          
+                                                                                                  
+ max_pooling1d_20 (MaxPooling1D  (None, 62, 64)      0           ['separable_conv1d_14[0][0]']    
+ )                                                                                                
+                                                                                                  
+ batch_normalization_30 (BatchN  (None, 62, 64)      256         ['max_pooling1d_20[0][0]']       
+ ormalization)                                                                                    
+                                                                                                  
+ separable_conv1d_15 (Separable  (None, 62, 64)      274496      ['batch_normalization_30[0][0]'] 
+ Conv1D)                                                                                          
+                                                                                                  
+ max_pooling1d_21 (MaxPooling1D  (None, 31, 64)      0           ['separable_conv1d_15[0][0]']    
+ )                                                                                                
+                                                                                                  
+ batch_normalization_31 (BatchN  (None, 31, 64)      256         ['max_pooling1d_21[0][0]']       
+ ormalization)                                                                                    
+                                                                                                  
+ multi_head_attention_6 (MultiH  (None, 125, 22)     46614       ['input_8[0][0]',                
+ eadAttention)                                                    'input_8[0][0]']                
+                                                                                                  
+ separable_conv1d_16 (Separable  (None, 31, 64)      274496      ['batch_normalization_31[0][0]'] 
+ Conv1D)                                                                                          
+                                                                                                  
+ max_pooling1d_23 (MaxPooling1D  (None, 62, 22)      0           ['multi_head_attention_6[0][0]'] 
+ )                                                                                                
+                                                                                                  
+ max_pooling1d_22 (MaxPooling1D  (None, 15, 64)      0           ['separable_conv1d_16[0][0]']    
+ )                                                                                                
+                                                                                                  
+ batch_normalization_33 (BatchN  (None, 62, 22)      88          ['max_pooling1d_23[0][0]']       
+ ormalization)                                                                                    
+                                                                                                  
+ batch_normalization_32 (BatchN  (None, 15, 64)      256         ['max_pooling1d_22[0][0]']       
+ ormalization)                                                                                    
+                                                                                                  
+ conv1d_2 (Conv1D)              (None, 31, 32)       2144        ['batch_normalization_33[0][0]'] 
+                                                                                                  
+ bidirectional_11 (Bidirectiona  (None, 256)         116736      ['input_8[0][0]']                
+ l)                                                                                               
+                                                                                                  
+ bidirectional_12 (Bidirectiona  (None, 256)         154624      ['input_8[0][0]']                
+ l)                                                                                               
+                                                                                                  
+ flatten_5 (Flatten)            (None, 960)          0           ['batch_normalization_32[0][0]'] 
+                                                                                                  
+ flatten_6 (Flatten)            (None, 992)          0           ['conv1d_2[0][0]']               
+                                                                                                  
+ batch_normalization_34 (BatchN  (None, 256)         1024        ['bidirectional_11[0][0]']       
+ ormalization)                                                                                    
+                                                                                                  
+ batch_normalization_35 (BatchN  (None, 256)         1024        ['bidirectional_12[0][0]']       
+ ormalization)                                                                                    
+                                                                                                  
+ concatenate_4 (Concatenate)    (None, 2464)         0           ['flatten_5[0][0]',              
+                                                                  'flatten_6[0][0]',              
+                                                                  'batch_normalization_34[0][0]', 
+                                                                  'batch_normalization_35[0][0]'] 
+                                                                                                  
+ batch_normalization_36 (BatchN  (None, 2464)        9856        ['concatenate_4[0][0]']          
+ ormalization)                                                                                    
+                                                                                                  
+ dense_6 (Dense)                (None, 64)           157760      ['batch_normalization_36[0][0]'] 
+                                                                                                  
+ dense_7 (Dense)                (None, 16)           1040        ['dense_6[0][0]']                
+                                                                                                  
+ dropout_3 (Dropout)            (None, 16)           0           ['dense_7[0][0]']                
+                                                                                                  
+ dense_8 (Dense)                (None, 1)            17          ['dropout_3[0][0]']              
+                                                                                                  
+==================================================================================================
+Total params: 1,135,087
+Trainable params: 1,128,707
+Non-trainable params: 6,380
+__________________________________________________________________________________________________

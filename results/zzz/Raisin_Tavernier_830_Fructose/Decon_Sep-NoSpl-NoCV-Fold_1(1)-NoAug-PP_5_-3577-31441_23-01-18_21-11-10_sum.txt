@@ -1,0 +1,33 @@
+Model: "sequential_37"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ spatial_dropout1d_14 (Spati  (None, 125, 5)           0         
+ alDropout1D)                                                    
+                                                                 
+ separable_conv1d_161 (Separ  (None, 125, 64)          42944     
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_166 (Ba  (None, 125, 64)          256       
+ tchNormalization)                                               
+                                                                 
+ conv1d_37 (Conv1D)          (None, 63, 32)            10272     
+                                                                 
+ flatten_37 (Flatten)        (None, 2016)              0         
+                                                                 
+ layer_normalization_5 (Laye  (None, 2016)             4032      
+ rNormalization)                                                 
+                                                                 
+ dense_111 (Dense)           (None, 128)               258176    
+                                                                 
+ dense_112 (Dense)           (None, 32)                4128      
+                                                                 
+ dropout_37 (Dropout)        (None, 32)                0         
+                                                                 
+ dense_113 (Dense)           (None, 1)                 33        
+                                                                 
+=================================================================
+Total params: 319,841
+Trainable params: 319,713
+Non-trainable params: 128
+_________________________________________________________________

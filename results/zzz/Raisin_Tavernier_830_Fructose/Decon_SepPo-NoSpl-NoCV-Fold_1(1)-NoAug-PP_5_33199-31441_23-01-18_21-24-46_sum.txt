@@ -1,0 +1,72 @@
+Model: "sequential_47"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ spatial_dropout1d_24 (Spati  (None, 125, 5)           0         
+ alDropout1D)                                                    
+                                                                 
+ separable_conv1d_184 (Separ  (None, 125, 64)          21504     
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_196 (Ba  (None, 125, 64)          256       
+ tchNormalization)                                               
+                                                                 
+ max_pooling1d_140 (MaxPooli  (None, 63, 64)           0         
+ ng1D)                                                           
+                                                                 
+ separable_conv1d_185 (Separ  (None, 63, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ batch_normalization_197 (Ba  (None, 63, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ max_pooling1d_141 (MaxPooli  (None, 32, 64)           0         
+ ng1D)                                                           
+                                                                 
+ separable_conv1d_186 (Separ  (None, 32, 64)           274496    
+ ableConv1D)                                                     
+                                                                 
+ max_pooling1d_142 (MaxPooli  (None, 16, 64)           0         
+ ng1D)                                                           
+                                                                 
+ batch_normalization_198 (Ba  (None, 16, 64)           256       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_187 (Separ  (None, 16, 32)           71712     
+ ableConv1D)                                                     
+                                                                 
+ max_pooling1d_143 (MaxPooli  (None, 8, 32)            0         
+ ng1D)                                                           
+                                                                 
+ batch_normalization_199 (Ba  (None, 8, 32)            128       
+ tchNormalization)                                               
+                                                                 
+ separable_conv1d_188 (Separ  (None, 8, 32)            35872     
+ ableConv1D)                                                     
+                                                                 
+ max_pooling1d_144 (MaxPooli  (None, 4, 32)            0         
+ ng1D)                                                           
+                                                                 
+ batch_normalization_200 (Ba  (None, 4, 32)            128       
+ tchNormalization)                                               
+                                                                 
+ conv1d_47 (Conv1D)          (None, 2, 32)             3104      
+                                                                 
+ batch_normalization_201 (Ba  (None, 2, 32)            128       
+ tchNormalization)                                               
+                                                                 
+ flatten_47 (Flatten)        (None, 64)                0         
+                                                                 
+ dense_141 (Dense)           (None, 128)               8320      
+                                                                 
+ dense_142 (Dense)           (None, 32)                4128      
+                                                                 
+ dropout_47 (Dropout)        (None, 32)                0         
+                                                                 
+ dense_143 (Dense)           (None, 1)                 33        
+                                                                 
+=================================================================
+Total params: 694,817
+Trainable params: 694,241
+Non-trainable params: 576
+_________________________________________________________________

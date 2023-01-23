@@ -1,0 +1,60 @@
+{
+    "Decon-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-7305-31441_23-01-13_09-39-28": {
+        "model": "Decon-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-7305-31441_23-01-13_09-39-28",
+        "dataset": "Raisin_Tavernier_830_GFratio",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "0.15755695",
+        "MAPE": "0.07436193",
+        "R2": "0.8846851141176904",
+        "MAE": "0.10162943",
+        "MSE": "0.02482419",
+        "MedAE": "0.06515372",
+        "EVS": "0.8864133954048157",
+        "run": "2023-01-13  09:44:13",
+        "training_time": "00:04:44"
+    },
+    "Decon-NoSpl-NoCV-NoAug-PP_22_-7305-31441_CV": {
+        "model": "Decon-NoSpl-NoCV-NoAug-PP_22_-7305-31441",
+        "dataset": "Raisin_Tavernier_830_GFratio",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "0.15755695",
+        "MAPE": "0.07436193",
+        "R2": "0.8846851141176904",
+        "MAE": "0.10162943",
+        "MSE": "0.02482419",
+        "MedAE": "0.06515372",
+        "EVS": "0.8864133954048157",
+        "run": "2023-01-13  09:44:13"
+    },
+    "Decon-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-1903-31441_23-01-13_10-05-18": {
+        "model": "Decon-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-1903-31441_23-01-13_10-05-18",
+        "dataset": "Raisin_Tavernier_830_GFratio",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "0.16894019",
+        "MAPE": "0.07274756",
+        "R2": "0.8674205683836915",
+        "MAE": "0.103558786",
+        "MSE": "0.028540784",
+        "MedAE": "0.061947107",
+        "EVS": "0.8674439191818237",
+        "run": "2023-01-13  10:07:53",
+        "training_time": "00:02:34"
+    },
+    "Decon-NoSpl-NoCV-NoAug-PP_22_-1903-31441_CV": {
+        "model": "Decon-NoSpl-NoCV-NoAug-PP_22_-1903-31441",
+        "dataset": "Raisin_Tavernier_830_GFratio",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "0.16894019",
+        "MAPE": "0.07274756",
+        "R2": "0.8674205683836915",
+        "MAE": "0.103558786",
+        "MSE": "0.028540784",
+        "MedAE": "0.061947107",
+        "EVS": "0.8674439191818237",
+        "run": "2023-01-13  10:07:53"
+    }
+}

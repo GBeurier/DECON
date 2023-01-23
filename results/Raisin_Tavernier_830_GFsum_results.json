@@ -1,0 +1,33 @@
+{
+    "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-6277-31441-23-01-19_03-26-16": {
+        "model": "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-6277-31441-23-01-19_03-26-16",
+        "dataset": "Raisin_Tavernier_830_GFsum",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "229.9847",
+        "MAPE": "0.25092617",
+        "R2": "0.7383732641324623",
+        "MAE": "176.4866",
+        "MSE": "52892.957",
+        "MedAE": "125.85127",
+        "EVS": "0.7396784424781799",
+        "run": "2023-01-19  03:34:17",
+        "path": "data/regression\\Raisin_Tavernier_830_GFsum",
+        "training_time": "00:08:00"
+    },
+    "Decon_Sep-NoSpl-CV_4_2-NoAug-PP_22_-6277-31441-23-01-19_03-34-17_CV": {
+        "model": "Decon_Sep-NoSpl-CV_4_2-NoAug-PP_22_-6277-31441-23-01-19_03-34-17",
+        "dataset": "Raisin_Tavernier_830_GFsum",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "230.07858",
+        "MAPE": "0.24780962",
+        "R2": "0.7381595689384461",
+        "MAE": "177.54622",
+        "MSE": "52936.156",
+        "MedAE": "140.16174",
+        "EVS": "0.748008131980896",
+        "run": "2023-01-19  04:24:39",
+        "path": "data/regression\\Raisin_Tavernier_830_GFsum"
+    }
+}

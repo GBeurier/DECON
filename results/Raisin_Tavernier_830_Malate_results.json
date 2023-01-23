@@ -1,0 +1,33 @@
+{
+    "Decon_Sep-NoSpl-CV_4_2-NoAug-PP_22_-6277-31441-23-01-19_05-27-38_CV": {
+        "model": "Decon_Sep-NoSpl-CV_4_2-NoAug-PP_22_-6277-31441-23-01-19_05-27-38",
+        "dataset": "Raisin_Tavernier_830_Malate",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "44.385113",
+        "MAPE": "0.50514394",
+        "R2": "0.8283974155715685",
+        "MAE": "27.441877",
+        "MSE": "1970.0381",
+        "MedAE": "16.170593",
+        "EVS": "0.8288190364837646",
+        "run": "2023-01-19  06:18:55",
+        "path": "data/regression\\Raisin_Tavernier_830_Malate"
+    },
+    "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-6277-31441-23-01-19_05-21-35": {
+        "model": "Decon_Sep-NoSpl-NoCV-Fold_1(1)-NoAug-PP_22_-6277-31441-23-01-19_05-21-35",
+        "dataset": "Raisin_Tavernier_830_Malate",
+        "seed": "31441",
+        "targetRMSE": "Unknown",
+        "RMSE": "46.030685",
+        "MAPE": "0.46759394",
+        "R2": "0.8154372238757398",
+        "MAE": "29.615465",
+        "MSE": "2118.824",
+        "MedAE": "17.006088",
+        "EVS": "0.8181436657905579",
+        "run": "2023-01-19  05:27:38",
+        "path": "data/regression\\Raisin_Tavernier_830_Malate",
+        "training_time": "00:06:02"
+    }
+}
