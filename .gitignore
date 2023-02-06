@@ -4,3 +4,13 @@ logs/
 data_bak/
 rawdata/
 *.hdf5
+/results_paprika
+/results_paprika_
+/results_raisins
+/results_archive
+/DECON_raisin
+/data
+/results
+/2150_validation.csv
+/2150_dataset.csv
+results_paprika_.7z

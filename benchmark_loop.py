@@ -28,6 +28,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import RepeatedKFold, StratifiedKFold, RepeatedStratifiedKFold
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import KBinsDiscretizer
 import tensorflow as tf
 
 from data import load_data
@@ -62,8 +63,6 @@ def get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred):
         "model": model_name,
         "dataset": dataset_name,
         "seed": str(SEED),
-        "targetRMSE": "Unknown",
-        # "targetRMSE": str(float(os.path.split(path)[-1].split("_")[-1].split("RMSE")[-1])),
         "RMSE": str(mean_squared_error(y_valid, y_pred, squared=False)),
         "MAPE": str(mean_absolute_percentage_error(y_valid, y_pred)),
         "R2": str(r2_score(y_valid, y_pred)),
@@ -71,7 +70,6 @@ def get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred):
         "MSE": str(mean_squared_error(y_valid, y_pred, squared=True)),
         "MedAE": str(median_absolute_error(y_valid, y_pred)),
         "EVS": str(explained_variance_score(y_valid, y_pred)),
-        # "MSLE":str(mean_squared_log_error(y_valid, y_pred)),
         "run": datetime.datetime.now().strftime("%Y-%m-%d  %H:%M:%S"),
         "path": path,
     }
@@ -116,15 +114,17 @@ current_y_test = None
 current_path = None
 
 
-def get_callback_predict(dataset_name, model_name, path, SEED):
+def get_callback_predict(dataset_name, model_name, path, SEED, target_RMSE, best_current_model, discretizer):
 
     def callback_predict(epoch, val_loss):
         if current_estimator is None:
             return
 
         y_pred = current_estimator.predict(current_X_test)
+        if discretizer is not None:
+            y_pred = discretizer.inverse_transform(y_pred)
         res = get_datasheet("", "", current_path, -1, current_y_test, y_pred)
-        print("Epoch:", epoch, "> RMSE:", res["RMSE"], "(", res["targetRMSE"], ") - R²:", res["R2"], " val_loss", val_loss)
+        print("Epoch:", epoch, "> RMSE:", res["RMSE"], " (", target_RMSE, "|", best_current_model, ") - R²:", res["R2"], " val_loss", val_loss)
 
         if epoch > 15:
             log_run(dataset_name, model_name, path, SEED, current_y_test, y_pred, 0)
@@ -134,7 +134,7 @@ def get_callback_predict(dataset_name, model_name, path, SEED):
     return callback_predict
 
 
-def evaluate_pipeline(desc, model_name, data, transformers):
+def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_current_model, discretizer=None):
     start_time = time.time()
 
     # Unpack args
@@ -148,7 +148,11 @@ def evaluate_pipeline(desc, model_name, data, transformers):
     pipeline = Pipeline([("transformation", transformer_pipeline), (model_name, regressor)])
 
     # Fit estimator
-    estimator = TransformedTargetRegressor(regressor=pipeline, transformer=y_scaler)
+    if discretizer is None:
+        estimator = TransformedTargetRegressor(regressor=pipeline, transformer=y_scaler)
+    else:
+        estimator = pipeline
+
     global current_estimator
     current_estimator = estimator
     global current_X_test
@@ -158,6 +162,8 @@ def evaluate_pipeline(desc, model_name, data, transformers):
     estimator.fit(X_train, y_train)
     # Evaluate estimator
     y_pred = estimator.predict(X_valid)
+    if discretizer is not None:
+        y_pred = discretizer.inverse_transform(y_pred)
     elapsed_time = time.time() - start_time
     datasheet = log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time)
     datasheet["training_time"] = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
@@ -168,7 +174,7 @@ def evaluate_pipeline(desc, model_name, data, transformers):
     with open(global_result_file, "w") as fp:
         json.dump(results, fp, indent=4)
 
-    print(datasheet["RMSE"], " (", datasheet["targetRMSE"], ") in", datasheet["training_time"])
+    print(datasheet["RMSE"], " (", target_RMSE, "|", best_current_model, ") in", datasheet["training_time"])
     return y_pred, datasheet
 
 
@@ -201,13 +207,21 @@ def init_log(path):
     return dataset_name, results, global_result_file
 
 
-def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED):
+def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, bins=None):
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
+
+    classification_mode = False if bins is None else True
+    name_classif = "" if classification_mode is False else '_Cl' + str(bins) + '_'
 
     for path in dataset_list:
         # Infos
         dataset_name, results, results_file = init_log(path)
+        target_RMSE, best_current_model = "-1", "None"
+        if len(results.keys()) > 0:
+            best_current_model = list(results.keys())[0]
+            target_RMSE = results[best_current_model]["RMSE"]
+
         folder = os.path.join("results", dataset_name)
         if not os.path.isdir(folder):
             os.makedirs(folder)
@@ -222,6 +236,14 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
         for split_config in split_configs:
             # print("Split >", split_config)
             X_train, y_train, X_test, y_test = X, y, X_valid, y_valid
+            discretizer = None
+            if classification_mode:
+                discretizer = KBinsDiscretizer(n_bins=bins, encode='onehot-dense', strategy='uniform')
+                discretizer.fit(y_train)
+                y_train = discretizer.transform(y_train.reshape((-1, 1)))
+                y_test = discretizer.transform(y_test.reshape((-1, 1)))
+                print(y_train.shape, y_test.shape)
+
             name_split = "NoSpl"
             if split_config is not None:
                 train_index, test_index = model_selection.train_test_split_idx(X, y=y, **split_config)
@@ -283,25 +305,29 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                 if isinstance(model[0], regressors.NN_NIRS_Regressor):
                                     # print(name_model, "is Neural Net")
                                     X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
-                                        preprocessing, X_tr, y_tr, X_te, y_te, type="augmentation"
+                                        preprocessing, X_tr, y_tr, X_te, y_te, type="augmentation", classification_mode=classification_mode
                                     )
                                 else:
+                                    if classification_mode:
+                                        print('Error:', "Can only use classification on neural nets models")
+                                        return
+
                                     # print(name_model, "is Machine Learning")
                                     X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
                                         preprocessing, X_tr, y_tr, X_te, y_te, type="union"
                                     )
 
                                 time_str = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
-                                run_name = "-".join([name_model, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
-                                run_key = "-".join([name_model, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
+                                run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
+                                run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
 
                                 print(run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
 
-                                cb_predict = get_callback_predict(dataset_name, name_model, path, SEED)
-                                regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc)
+                                cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer)
+                                regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc, discretizer=discretizer)
                                 transformers = (y_scaler, transformer_pipeline, regressor)
 
-                                y_pred, datasheet = evaluate_pipeline(desc, run_name, data, transformers)
+                                y_pred, datasheet = evaluate_pipeline(desc, run_name, data, transformers, target_RMSE, best_current_model, discretizer)
                                 if name_cv != "NoCV":
                                     if run_key not in cv_predictions:
                                         cv_predictions[run_key] = []

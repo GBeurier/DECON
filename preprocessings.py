@@ -144,10 +144,14 @@ def optimal_set_2D():
     return optimal_set
 
 
-def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="augmentation"):
-    y_scaler = MinMaxScaler()
-    y_scaler.fit(y_train.reshape((-1, 1)))
-    y_valid = y_scaler.transform(y_test.reshape((-1, 1)))
+def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="augmentation", classification_mode=None):
+    if classification_mode is None:
+        y_scaler = MinMaxScaler()
+        y_scaler.fit(y_train.reshape((-1, 1)))
+        y_valid = y_scaler.transform(y_test.reshape((-1, 1)))
+    else:
+        y_scaler = None
+        y_valid = y_test
 
     if preprocessing is None:
         transformer_pipeline = Pipeline([

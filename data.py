@@ -79,10 +79,10 @@ def load_data(path, resample_size=512):
     # X_train, y_train = load_csv(files[0], files[1], x_hdr=0, y_hdr=0, sep=";")
     X_train, y_train = load_csv(files[0], files[1], x_hdr=None, y_hdr=None, sep=";")
 
-    X_train_rs = []
-    for i in range(len(X_train)):
-        X_train_rs.append(signal.resample(X_train[i], resample_size))
-    X_train = np.array(X_train_rs)
+    # X_train_rs = []
+    # for i in range(len(X_train)):
+    #     X_train_rs.append(signal.resample(X_train[i], resample_size))
+    # X_train = np.array(X_train_rs)
 
     X_valid, y_valid = np.empty(X_train.shape), np.empty(y_train.shape)
     regex = re.compile(".*Xval.*")
@@ -90,10 +90,10 @@ def load_data(path, resample_size=512):
         if regex.match(file):
             files = tuple(next(projdir.glob(n)) for n in ["*Xval*", "*Yval*"])
             X_valid, y_valid = load_csv(files[0], files[1], x_hdr=0, y_hdr=0, sep=";")
-            X_valid_rs = []
-            for i in range(len(X_valid)):
-                X_valid_rs.append(signal.resample(X_valid[i], resample_size))
-            X_valid = np.array(X_valid_rs)
+            # X_valid_rs = []
+            # for i in range(len(X_valid)):
+            #     X_valid_rs.append(signal.resample(X_valid[i], resample_size))
+            # X_valid = np.array(X_valid_rs)
 
     # X_train, X_valid = X_train[:,0:1024], X_valid[:,0:1024]
     return X_train, y_train, X_valid, y_valid

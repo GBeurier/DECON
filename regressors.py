@@ -27,14 +27,17 @@ from tensorflow.keras.layers import (
     SeparableConv1D,
     Add,
     GlobalAveragePooling1D,
+    GlobalMaxPool1D,
     Concatenate,
     DepthwiseConv1D,
+    Permute,
     MaxPooling1D,
     LayerNormalization,
     MultiHeadAttention,
     SeparableConv1D,
     ConvLSTM1D,
     LocallyConnected1D,
+    Lambda
 )
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
@@ -115,7 +118,7 @@ def clr(epoch):
     cycle_params = {
         "MIN_LR": 0.003,
         "MAX_LR": 0.05,
-        "CYCLE_LENGTH": 500,
+        "CYCLE_LENGTH": 64,
     }
     MIN_LR, MAX_LR, CYCLE_LENGTH = (
         cycle_params["MIN_LR"],
@@ -154,7 +157,7 @@ class NN_NIRS_Regressor(NIRS_Regressor):
     def build_model(self, input_shape, params):
         return None
 
-    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="default_run", cb=None, params=None, desc=None):
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="default_run", cb=None, params=None, desc=None, discretizer=None):
 
         early_stop = EarlyStopping(monitor="val_loss", patience=params['patience'], verbose=1, mode="min", min_delta=0)
         # log_dir = os.path.join('logs','fit','run_name', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -165,6 +168,12 @@ class NN_NIRS_Regressor(NIRS_Regressor):
         auto_save = Auto_Save(weights_path, X_test.shape, cb)
         callbacks = [auto_save, early_stop, lrScheduler]  #  reduce_lr tensorboard_callback
         model_inst = self.build_model(X_test.shape[1:], params)
+
+        if discretizer is not None:
+            x = model_inst.layers[-2].output
+            x = Dense(discretizer.n_bins, activation='softmax')(x)
+            model_inst = Model(inputs=model_inst.inputs, outputs=x)
+        
         # model_inst.summary()
 
         trainableParams = np.sum([np.prod(v.get_shape())
@@ -181,19 +190,35 @@ class NN_NIRS_Regressor(NIRS_Regressor):
             totalParams,
         )
 
-        rmse = tf.keras.metrics.RootMeanSquaredError()
-        k_regressor = KerasRegressor(
-            model=model_inst,
-            loss='mse',
-            metrics=[rmse],
-            optimizer=params["optimizer"],
-            callbacks=callbacks,
-            epochs=params["epoch"],
-            batch_size=params["batch_size"],
-            fit__validation_data=(X_test, y_test),
-            fit__shuffle=True,
-            verbose=params["verbose"],
-        )
+        if discretizer is None:
+            rmse = tf.keras.metrics.RootMeanSquaredError()
+            k_regressor = KerasRegressor(
+                model=model_inst,
+                loss='mse',
+                metrics=[rmse],
+                optimizer=params["optimizer"],
+                callbacks=callbacks,
+                epochs=params["epoch"],
+                batch_size=params["batch_size"],
+                fit__validation_data=(X_test, y_test),
+                fit__shuffle=True,
+                verbose=params["verbose"],
+            )
+        else:
+            # scc = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+            k_regressor = KerasRegressor(
+                model=model_inst,
+                loss=tf.keras.losses.categorical_crossentropy,
+                metrics=['accuracy'],
+                optimizer=params["optimizer"],
+                callbacks=callbacks,
+                epochs=params["epoch"],
+                batch_size=params["batch_size"],
+                fit__validation_data=(X_test, y_test),
+                fit__shuffle=True,
+                verbose=params["verbose"],
+            )
 
         return k_regressor
 
@@ -377,6 +402,45 @@ class XCeption1D(NN_NIRS_Regressor):
         return Model(inputs, outputs)
 
 
+class FFT_Conv(NN_NIRS_Regressor):
+    def build_model(self, input_shape, params):
+        
+        inputs = Input(shape=input_shape)
+        x = SpatialDropout1D(0.2)(inputs)
+        x = Permute((2, 1))(x)
+        x = Lambda(lambda v: tf.cast(tf.signal.fft(tf.cast(v, dtype=tf.complex64)),tf.float32))(x)
+        x = Permute((2, 1))(x)
+        x = SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same")(x)
+        x = BatchNormalization()(x)
+        x = Activation("relu")(x)
+        x = SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same")(x)
+        x = BatchNormalization()(x)
+        x = Activation("relu")(x)
+        # x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same")(x)
+        # x = BatchNormalization()(x)
+        # x = Activation("relu")(x)
+        # x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same")(x)
+        # x = BatchNormalization()(x)
+        # x = Activation("relu")(x)
+
+        x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same")(x)
+        x = BatchNormalization()(x)
+        x = Flatten()(x)
+        x = Activation("relu")(x)
+        
+        # x = BatchNormalization()(x)
+        # x = GlobalMaxPool1D()(x)
+
+        x = Dense(128, activation="relu")(x)
+        x = Dense(32, activation="relu")(x)
+        x = Dropout(0.1)(x)
+        x = Dense(1, activation="sigmoid")(x)
+
+        outputs = x
+        model = Model(inputs, outputs)
+        model.summary()
+        return model
+
 class Custom_Residuals(NN_NIRS_Regressor):
     def build_model(self, input_shape, params):
         inputs = Input(shape=input_shape)
@@ -505,6 +569,20 @@ class Bacon_VG(NN_NIRS_Regressor):
         model.add(Dense(units=1024, activation="relu"))
         model.add(Dropout(0.2))
         model.add(Dense(units=1024, activation="relu"))
+        model.add(Dense(units=1, activation="sigmoid"))
+        # we compile the model with the custom Adam optimizer
+        # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
+        return model
+
+
+class MLP(NN_NIRS_Regressor):
+    def build_model(self, input_shape, params):
+        model = Sequential()
+        model.add(Input(shape=input_shape))
+        model.add(Dropout(0.2))
+        model.add(Dense(units=1024, activation="relu"))
+        model.add(Dense(units=128, activation="relu"))
+        model.add(Dense(units=8, activation="relu"))
         model.add(Dense(units=1, activation="sigmoid"))
         # we compile the model with the custom Adam optimizer
         # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
