@@ -37,6 +37,8 @@ from tensorflow.keras.layers import (
     SeparableConv1D,
     ConvLSTM1D,
     LocallyConnected1D,
+    Multiply,
+    UpSampling1D,
     Lambda
 )
 from tensorflow.keras.models import Model, Sequential
@@ -64,7 +66,7 @@ class Auto_Save(Callback):
         current_loss = logs.get("val_loss")
         lr = self.model.optimizer.learning_rate
         
-        print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), end="\r")
+        print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), " - ", current_loss, end="\r")
 
         if np.less(current_loss, self.best):
             self.best = current_loss
@@ -176,6 +178,9 @@ class NN_NIRS_Regressor(NIRS_Regressor):
         
         # model_inst.summary()
 
+        dot_img_file = os.path.join('results', run_name + 'model_plot.png')
+        tf.keras.utils.plot_model(model_inst, to_file=dot_img_file, show_shapes=True)
+        
         trainableParams = np.sum([np.prod(v.get_shape())
                                  for v in model_inst.trainable_weights])
         nonTrainableParams = np.sum(
@@ -233,6 +238,7 @@ class Custom_NN(NN_NIRS_Regressor):
 
 
 from models.VGG_1DCNN import VGG
+
 
 class UNet_NIRS(NN_NIRS_Regressor):
 
@@ -309,6 +315,91 @@ class CONV_LSTM(NN_NIRS_Regressor):
         x = Dropout(0.2)(x)
         outputs = Dense(units=1, activation="sigmoid")(x)
         return Model(inputs, outputs)
+
+class UNET(NN_NIRS_Regressor):
+
+    def cbr(self, x, out_layer, kernel, stride, dilation):
+        x = Conv1D(out_layer, kernel_size=kernel, dilation_rate=dilation, strides=stride, padding="same")(x)
+        x = BatchNormalization()(x)
+        x = Activation("relu")(x)
+        return x
+
+    def se_block(self, x_in, layer_n):
+        x = GlobalAveragePooling1D()(x_in)
+        x = Dense(layer_n//8, activation="relu")(x)
+        x = Dense(layer_n, activation="sigmoid")(x)
+        x_out=Multiply()([x_in, x])
+        return x_out
+
+    def resblock(self, x_in, layer_n, kernel, dilation, use_se=True):
+        x = self.cbr(x_in, layer_n, kernel, 1, dilation)
+        x = self.cbr(x, layer_n, kernel, 1, dilation)
+        if use_se:
+            x = self.se_block(x, layer_n)
+        x = Add()([x_in, x])
+        return x  
+
+    def build_model(self, input_shape, params):
+        layer_n = 64
+        kernel_size = 7
+        depth = 2
+
+        input_layer = Input(input_shape)    
+        input_layer_1 = AveragePooling1D(5)(input_layer)
+        input_layer_2 = AveragePooling1D(25)(input_layer)
+        
+        ########## Encoder
+        x = self.cbr(input_layer, layer_n, kernel_size, 1, 1)#1000
+        for i in range(depth):
+            x = self.resblock(x, layer_n, kernel_size, 1)
+        out_0 = x
+
+        x = self.cbr(x, layer_n*2, kernel_size, 5, 1)
+        for i in range(depth):
+            x = self.resblock(x, layer_n*2, kernel_size, 1)
+        out_1 = x
+
+        x = Concatenate()([x, input_layer_1])    
+        x = self.cbr(x, layer_n*3, kernel_size, 5, 1)
+        for i in range(depth):
+            x = self.resblock(x, layer_n*3, kernel_size, 1)
+        out_2 = x
+
+        x = Concatenate()([x, input_layer_2])    
+        x = self.cbr(x, layer_n*4, kernel_size, 5, 1)
+        for i in range(depth):
+            x = self.resblock(x, layer_n*4, kernel_size, 1)
+        
+        # ########## Decoder
+        # x = UpSampling1D(5)(x)
+        # x = Concatenate()([x, out_2])
+        # x = self.cbr(x, layer_n*3, kernel_size, 1, 1)
+
+        # x = UpSampling1D(5)(x)
+        # x = Concatenate()([x, out_1])
+        # x = self.cbr(x, layer_n*2, kernel_size, 1, 1)
+
+        # x = UpSampling1D(5)(x)
+        # x = Concatenate()([x, out_0])
+        # x = self.cbr(x, layer_n, kernel_size, 1, 1)    
+
+        # # regressor
+        x = Conv1D(1, kernel_size=kernel_size, strides=1, padding="same")(x)
+        out = Activation("relu")(x)
+        out = Lambda(lambda x: 12*x)(out)
+        ##
+        out = Flatten()(x)
+        out = Dense(1, activation="sigmoid")(out)
+        ##
+        
+        # classifier
+        # x = Conv1D(11, kernel_size=kernel_size, strides=1, padding="same")(x)
+        # out = Activation("softmax")(x)
+        
+        model = Model(input_layer, out)
+        
+        return model
+
 
 
 
@@ -891,7 +982,7 @@ class Abstract_Transformer(NN_NIRS_Regressor):
         num_heads=2,
         ff_dim=8,
         num_transformer_blocks=1,
-        mlp_units=[8],
+        mlp_units=[32, 8],
         dropout=0.05,
         mlp_dropout=0.1,
     ):

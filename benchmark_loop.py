@@ -123,6 +123,9 @@ def get_callback_predict(dataset_name, model_name, path, SEED, target_RMSE, best
         y_pred = current_estimator.predict(current_X_test)
         if discretizer is not None:
             y_pred = discretizer.inverse_transform(y_pred)
+
+        print("*"*10, current_X_test.shape, current_y_test.shape, y_pred.shape)
+
         res = get_datasheet("", "", current_path, -1, current_y_test, y_pred)
         print("Epoch:", epoch, "> RMSE:", res["RMSE"], " (", target_RMSE, "|", best_current_model, ") - R²:", res["R2"], " val_loss", val_loss)
 
@@ -207,7 +210,7 @@ def init_log(path):
     return dataset_name, results, global_result_file
 
 
-def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, bins=None):
+def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, *, bins=None, resampling=None, resample_size=0):
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
 
@@ -229,7 +232,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
 
         # Load data
         print("="*10, str(dataset_name).upper(), end=" ")
-        X, y, X_valid, y_valid = load_data(path)
+        X, y, X_valid, y_valid = load_data(path, resampling, resample_size)
         print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
 
         # Split data
@@ -242,7 +245,10 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                 discretizer.fit(y_train)
                 y_train = discretizer.transform(y_train.reshape((-1, 1)))
                 y_test = discretizer.transform(y_test.reshape((-1, 1)))
-                print(y_train.shape, y_test.shape)
+                print("Discretized shape", y_train.shape, y_test.shape)
+            # else:
+            #     y_train = y_train.reshape((-1, 1))
+            #     y_test = y_test.reshape((-1, 1))
 
             name_split = "NoSpl"
             if split_config is not None:
@@ -323,6 +329,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
 
                                 print(run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
 
+                                # print(">"*10, X_tr[0], y_test_pp[0])
                                 cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer)
                                 regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc, discretizer=discretizer)
                                 transformers = (y_scaler, transformer_pipeline, regressor)
