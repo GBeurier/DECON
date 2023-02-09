@@ -124,12 +124,12 @@ def get_callback_predict(dataset_name, model_name, path, SEED, target_RMSE, best
         if discretizer is not None:
             y_pred = discretizer.inverse_transform(y_pred)
 
-        print("*"*10, current_X_test.shape, current_y_test.shape, y_pred.shape)
+        # print("*"*10, current_X_test.shape, current_y_test.shape, y_pred.shape)
 
         res = get_datasheet("", "", current_path, -1, current_y_test, y_pred)
         print("Epoch:", epoch, "> RMSE:", res["RMSE"], " (", target_RMSE, "|", best_current_model, ") - R²:", res["R2"], " val_loss", val_loss)
 
-        if epoch > 15:
+        if float(res["RMSE"]) / 1.1 < float(target_RMSE):
             log_run(dataset_name, model_name, path, SEED, current_y_test, y_pred, 0)
 
         return res

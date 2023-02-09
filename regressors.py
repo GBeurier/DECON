@@ -118,8 +118,8 @@ def scale_fn(x):
 def clr(epoch):
     # return 0.05
     cycle_params = {
-        "MIN_LR": 0.003,
-        "MAX_LR": 0.05,
+        "MIN_LR": 0.0003,
+        "MAX_LR": 0.005,
         "CYCLE_LENGTH": 64,
     }
     MIN_LR, MAX_LR, CYCLE_LENGTH = (
@@ -178,7 +178,7 @@ class NN_NIRS_Regressor(NIRS_Regressor):
         
         # model_inst.summary()
 
-        dot_img_file = os.path.join('results', run_name + 'model_plot.png')
+        dot_img_file = os.path.join('results', run_name + 'model_plot.jpg')
         tf.keras.utils.plot_model(model_inst, to_file=dot_img_file, show_shapes=True)
         
         trainableParams = np.sum([np.prod(v.get_shape())
@@ -400,6 +400,39 @@ class UNET(NN_NIRS_Regressor):
         
         return model
 
+
+from SE_ResNet_1DCNN import SEResNet
+from ResNet_v2_1DCNN import ResNetv2
+
+class SEResNet(NN_NIRS_Regressor):
+    def build_model(self, input_shape, params):
+         # Configurations
+        length = input_shape[0]
+        num_channel = input_shape[-1] #1  # Number of Channels in the Model
+        model_width = 16  # Width of the Initial Layer, subsequent layers start from here
+        problem_type = 'Regression' # Classification or Regression
+        output_nums = 1  # Number of Class for Classification Problems, always '1' for Regression Problems
+        reduction_ratio = 4
+        # Build, Compile and Print Summary
+        # model_name = 'SEResNet152'  # Modified DenseNet
+        model = SEResNet(length, num_channel, model_width, ratio=reduction_ratio, problem_type=problem_type,
+                        output_nums=output_nums, pooling='avg', dropout_rate=False).SEResNet101()
+
+        return model
+
+class ResNetV2(NN_NIRS_Regressor):
+    def build_model(self, input_shape, params):
+        # Configurations
+        length = input_shape[0]  # Length of each Segment
+        num_channel = input_shape[-1] #1  # Number of Channels in the Model
+        model_width = 16 # Width of the Initial Layer, subsequent layers start from here
+        problem_type = 'Regression' # Classification or Regression
+        output_nums = 1  # Number of Class for Classification Problems, always '1' for Regression Problems
+        #
+        # model_name = 'ResNet152'  # DenseNet Models
+        model = ResNetv2(length, num_channel, model_width, problem_type=problem_type, output_nums=output_nums, pooling='avg', dropout_rate=False).ResNet34()
+
+        return model
 
 
 
