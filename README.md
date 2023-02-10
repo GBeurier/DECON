@@ -1,2 +1,3 @@
 # DECON
-The pinard pipeline for NIRS prediction
+Using pinard pipeline to test regression models on NIRS.
+
