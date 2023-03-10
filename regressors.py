@@ -60,26 +60,30 @@ class Auto_Save(Callback):
         self.model_name = model_name
         self.shape = shape
         self.best = np.Inf
+        self.best_unscaled = np.Inf
         self.cb = cb_func
 
     def on_epoch_end(self, epoch, logs=None):
         current_loss = logs.get("val_loss")
         lr = self.model.optimizer.learning_rate
         
-        print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), " - ", current_loss, end="\r")
+        print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), " - ", "{:.6f}".format(current_loss), "{:.6f}".format(self.best), " "*10, end="\r")
 
         if np.less(current_loss, self.best):
-            self.best = current_loss
-            Auto_Save.best_weights = self.model.get_weights()
-            self.best_epoch = epoch
             if self.cb is not None:
-                self.cb(epoch, self.best)
-            # print("Best so far >", self.best)
+                res = self.cb(epoch, self.best)
+                RMSE = float(res['RMSE'])
+                self.best = current_loss
+                if RMSE < self.best_unscaled:
+                    self.best_unscaled = RMSE
+                    Auto_Save.best_weights = self.model.get_weights()
+                    self.best_epoch = epoch
+            print("Best so far >", self.best_unscaled, self.model_name)
+
 
     def on_train_end(self, logs=None):
         # if self.params['verbose'] == 2:
-        print("Saved best {0:6.4f} at epoch".format(
-            self.best), self.best_epoch)
+        print("Saved best {0:6.4f} at epoch".format(self.best_unscaled), self.best_epoch)
         self.model.set_weights(Auto_Save.best_weights)
         self.model.save_weights(self.model_name + ".hdf5")
         with open(self.model_name + "_sum.txt", 'w') as f:
@@ -118,7 +122,7 @@ def scale_fn(x):
 def clr(epoch):
     # return 0.05
     cycle_params = {
-        "MIN_LR": 0.003,
+        "MIN_LR": 0.0001,
         "MAX_LR": 0.05,
         "CYCLE_LENGTH": 64,
     }
@@ -178,7 +182,7 @@ class NN_NIRS_Regressor(NIRS_Regressor):
         
         # model_inst.summary()
 
-        dot_img_file = os.path.join('results', run_name + 'model_plot.png')
+        dot_img_file = os.path.join('results', desc[0], run_name + '_model.jpg')
         tf.keras.utils.plot_model(model_inst, to_file=dot_img_file, show_shapes=True)
         
         trainableParams = np.sum([np.prod(v.get_shape())
@@ -400,6 +404,39 @@ class UNET(NN_NIRS_Regressor):
         
         return model
 
+
+from SE_ResNet_1DCNN import SEResNet
+from ResNet_v2_1DCNN import ResNetv2
+
+class SEResNet(NN_NIRS_Regressor):
+    def build_model(self, input_shape, params):
+         # Configurations
+        length = input_shape[0]
+        num_channel = input_shape[-1] #1  # Number of Channels in the Model
+        model_width = 16  # Width of the Initial Layer, subsequent layers start from here
+        problem_type = 'Regression' # Classification or Regression
+        output_nums = 1  # Number of Class for Classification Problems, always '1' for Regression Problems
+        reduction_ratio = 4
+        # Build, Compile and Print Summary
+        # model_name = 'SEResNet152'  # Modified DenseNet
+        model = SEResNet(length, num_channel, model_width, ratio=reduction_ratio, problem_type=problem_type,
+                        output_nums=output_nums, pooling='avg', dropout_rate=False).SEResNet101()
+
+        return model
+
+class ResNetV2(NN_NIRS_Regressor):
+    def build_model(self, input_shape, params):
+        # Configurations
+        length = input_shape[0]  # Length of each Segment
+        num_channel = input_shape[-1] #1  # Number of Channels in the Model
+        model_width = 16 # Width of the Initial Layer, subsequent layers start from here
+        problem_type = 'Regression' # Classification or Regression
+        output_nums = 1  # Number of Class for Classification Problems, always '1' for Regression Problems
+        #
+        # model_name = 'ResNet152'  # DenseNet Models
+        model = ResNetv2(length, num_channel, model_width, problem_type=problem_type, output_nums=output_nums, pooling='avg', dropout_rate=False).ResNet34()
+
+        return model
 
 
 
@@ -837,26 +874,19 @@ class Decon(NN_NIRS_Regressor):
         model = Sequential()
         model.add(Input(shape=input_shape))
         model.add(SpatialDropout1D(0.2))
-        model.add(DepthwiseConv1D(kernel_size=7, padding="same",
-                  depth_multiplier=2, activation="relu"))
-        model.add(DepthwiseConv1D(kernel_size=7, padding="same",
-                  depth_multiplier=2, activation="relu"))
+        model.add(DepthwiseConv1D(kernel_size=7, padding="same", depth_multiplier=2, activation="relu"))
+        model.add(DepthwiseConv1D(kernel_size=7, padding="same", depth_multiplier=2, activation="relu"))
         model.add(MaxPooling1D(pool_size=2, strides=2))
         model.add(BatchNormalization())
-        model.add(DepthwiseConv1D(kernel_size=5, padding="same",
-                  depth_multiplier=2, activation="relu"))
-        model.add(DepthwiseConv1D(kernel_size=5, padding="same",
-                  depth_multiplier=2, activation="relu"))
+        model.add(DepthwiseConv1D(kernel_size=5, padding="same", depth_multiplier=2, activation="relu"))
+        model.add(DepthwiseConv1D(kernel_size=5, padding="same", depth_multiplier=2, activation="relu"))
         model.add(MaxPooling1D(pool_size=2, strides=2))
         model.add(BatchNormalization())
-        model.add(DepthwiseConv1D(kernel_size=9, padding="same",
-                  depth_multiplier=2, activation="relu"))
-        model.add(DepthwiseConv1D(kernel_size=9, padding="same",
-                  depth_multiplier=2, activation="relu"))
+        model.add(DepthwiseConv1D(kernel_size=9, padding="same", depth_multiplier=2, activation="relu"))
+        model.add(DepthwiseConv1D(kernel_size=9, padding="same", depth_multiplier=2, activation="relu"))
         model.add(MaxPooling1D(pool_size=2, strides=2))
         model.add(BatchNormalization())
-        model.add(SeparableConv1D(64, kernel_size=3,
-                  depth_multiplier=1, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=1, padding="same", activation="relu"))
         model.add(Conv1D(filters=32, kernel_size=3, padding="same", activation="relu"))
         model.add(MaxPooling1D(pool_size=5, strides=3))
         model.add(SpatialDropout1D(0.1))
@@ -1009,10 +1039,10 @@ class Transformer_VG(Abstract_Transformer):
         return super().transformer_model(
             input_shape,
             head_size=16,
-            num_heads=2,
+            num_heads=32,
             ff_dim=8,
             num_transformer_blocks=1,
-            mlp_units=[8],
+            mlp_units=[32, 8],
             dropout=0.05,
             mlp_dropout=0.1,
         )
