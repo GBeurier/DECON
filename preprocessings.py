@@ -1,3 +1,5 @@
+import numpy as np
+
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.preprocessing import MinMaxScaler
 
@@ -144,6 +146,41 @@ def optimal_set_2D():
     return optimal_set
 
 
+def transform_test_data_multiple(preprocessing, X_train, y_train, X_test, y_test, type="augmentation", classification_mode=False):
+    if classification_mode:
+        y_scaler = None
+        y_valid = y_test
+    else:
+        y_scaler = MinMaxScaler()
+        y_scaler.fit(y_train.reshape((-1, 1)))
+        y_valid = y_scaler.transform(y_test.reshape((-1, 1)))
+
+    X_valid = []
+    transformer_pipelines = []
+
+    for i in range(len(X_train)):
+        if preprocessing is None:
+            transformer_pipeline = Pipeline([
+                    ("scaler", MinMaxScaler()),
+            ])
+        elif type == "augmentation":
+            transformer_pipeline = Pipeline([
+                    ("scaler", MinMaxScaler()),
+                    ("preprocessing", FeatureAugmentation(preprocessing)),
+            ])
+        else:
+            transformer_pipeline = Pipeline([
+                    ("scaler", MinMaxScaler()),
+                    ("preprocessing", FeatureUnion(preprocessing)),
+            ])
+
+        transformer_pipeline.fit(X_train[i])
+        transformer_pipelines.append(transformer_pipeline)
+        X_valid.append(transformer_pipeline.transform(X_test[i]))
+
+    return np.array(X_valid), y_valid, transformer_pipeline, y_scaler
+
+
 def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="augmentation", classification_mode=False):
     if classification_mode:
         y_scaler = None
@@ -172,6 +209,9 @@ def transform_test_data(preprocessing, X_train, y_train, X_test, y_test, type="a
     X_valid = transformer_pipeline.transform(X_test)
 
     return X_valid, y_valid, transformer_pipeline, y_scaler
+
+
+
 
 
 def preprocessing_list():

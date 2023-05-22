@@ -28,7 +28,7 @@ from tensorflow.keras.layers import (
     Add,
     GlobalAveragePooling1D,
     GlobalMaxPool1D,
-    Concatenate,
+    Concatenate, concatenate,
     DepthwiseConv1D,
     Permute,
     MaxPooling1D,
@@ -51,6 +51,46 @@ from keras_self_attention import SeqSelfAttention
 from lwpls import LWPLS
 from contextlib import redirect_stdout
 
+
+class Auto_Save_Multiple(Callback):
+    best_weights = []
+
+    def __init__(self, model_name, shape, cb_func=None):
+        super(Auto_Save_Multiple, self).__init__()
+        self.model_name = model_name
+        self.shape = shape
+        self.best = np.Inf
+        self.best_unscaled = np.Inf
+        self.cb = cb_func
+
+    def on_epoch_end(self, epoch, logs=None):
+        current_loss = logs.get("val_loss")
+        lr = self.model.optimizer.learning_rate
+        
+        print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), " - ", "{:.6f}".format(current_loss), "{:.6f}".format(self.best), " "*10, end="\r")
+
+        if np.less(current_loss, self.best):
+            self.best = current_loss
+            Auto_Save_Multiple.best_weights = self.model.get_weights()
+            self.best_epoch = epoch
+
+            if self.cb is not None:
+                res = self.cb(epoch, self.best)
+                RMSE = float(res['RMSE'])
+                if RMSE < self.best_unscaled:
+                    self.best_unscaled = RMSE
+                    
+            print("Best so far >", self.best_unscaled, self.model_name)
+
+
+    def on_train_end(self, logs=None):
+        # if self.params['verbose'] == 2:
+        print("Saved best {0:6.4f} at epoch".format(self.best_unscaled), self.best_epoch)
+        self.model.set_weights(Auto_Save_Multiple.best_weights)
+        self.model.save_weights(self.model_name + ".hdf5")
+        with open(self.model_name + "_sum.txt", 'w') as f:
+            with redirect_stdout(f):
+                self.model.summary()
 
 class Auto_Save(Callback):
     best_weights = []
@@ -124,7 +164,7 @@ def clr(epoch):
     cycle_params = {
         "MIN_LR": 0.0001,
         "MAX_LR": 0.05,
-        "CYCLE_LENGTH": 64,
+        "CYCLE_LENGTH": 256,
     }
     MIN_LR, MAX_LR, CYCLE_LENGTH = (
         cycle_params["MIN_LR"],
@@ -146,7 +186,7 @@ class NIRS_Regressor:
         self.params = params
         self.name_ = name
 
-    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None):
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None, discretizer=None):
         pass
 
     def name(self):
@@ -156,6 +196,55 @@ class NIRS_Regressor:
 
 
 
+class NN_NIRS_Regressor_Multiple(NIRS_Regressor):
+
+    def build_model(self, input_shape, params):
+        return None
+
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="default_run", cb=None, params=None, desc=None, discretizer=None):
+
+        early_stop = EarlyStopping(monitor="val_loss", patience=params['patience'], verbose=1, mode="min", min_delta=0)
+        # log_dir = os.path.join('logs','fit','run_name', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=int(params['patience']/2), min_lr=0.001)
+        lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
+        weights_path = os.path.join("results", desc[0], run_name)
+        auto_save = Auto_Save_Multiple(weights_path, X_test.shape, cb)
+        callbacks = [auto_save, early_stop, lrScheduler]  #  reduce_lr tensorboard_callback
+        model_inst = self.build_model(X_test.shape, params)
+
+        if discretizer is not None:
+            x = model_inst.layers[-2].output
+            x = Dense(discretizer.n_bins, activation='softmax')(x)
+            model_inst = Model(inputs=model_inst.inputs, outputs=x)
+        
+        # model_inst.summary()
+
+        dot_img_file = os.path.join('results', desc[0], run_name + '_model.jpg')
+        tf.keras.utils.plot_model(model_inst, to_file=dot_img_file, show_shapes=True)
+        
+        trainableParams = np.sum([np.prod(v.get_shape())
+                                 for v in model_inst.trainable_weights])
+        nonTrainableParams = np.sum(
+            [np.prod(v.get_shape()) for v in model_inst.non_trainable_weights])
+        totalParams = trainableParams + nonTrainableParams
+        print(
+            "--- Trainable:",
+            trainableParams,
+            "- untrainable:",
+            nonTrainableParams,
+            ">",
+            totalParams,
+        )
+
+        if discretizer is None:
+            rmse = tf.keras.metrics.RootMeanSquaredError()
+            model_inst.compile(optimizer=params["optimizer"], loss='mse', metrics=[rmse])
+        else:
+            model_inst.compile(optimizer=params["optimizer"], loss='categorical_crossentropy', metrics=['accuracy'])
+            # scc = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+        return (model_inst, params, callbacks)
 
 
 class NN_NIRS_Regressor(NIRS_Regressor):
@@ -779,23 +868,57 @@ class Decon_SepDep(NN_NIRS_Regressor):
         return model
 
 
+class Decon_Sep_Multiple(NN_NIRS_Regressor_Multiple):
+    def build_model(self, input_shape_global, params):
+        print("input_shape_global", input_shape_global)
+        input_shape = input_shape_global[2:]
+        start_models = []
+        for i in range(input_shape_global[0]):
+            input = Input(shape=input_shape)
+            x = SpatialDropout1D(0.2)(input)
+            x = SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, strides=2, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            model = Model(inputs=input, outputs=x)
+            start_models.append(model)
+        
+        combined = concatenate([model.output for model in start_models])
+        x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
+        x = BatchNormalization()(x)
+        x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
+        x = Flatten()(x)
+        x = BatchNormalization()(x)
+        # model.add(Dense(units=128, activation="relu"))
+        x = Dense(units=32, activation="relu")(x)
+        x = Dropout(0.2)(x)
+        z = Dense(units=1, activation="sigmoid")(x)
+
+        model = Model(inputs=[model.input for model in start_models], outputs=z)
+        return model
+
+
 class Decon_Sep(NN_NIRS_Regressor):
     def build_model(self, input_shape, params):
         model = Sequential()
         model.add(Input(shape=input_shape))
         model.add(SpatialDropout1D(0.2))        
-        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=64, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
-        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=64, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
-        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=64, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
-        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=64, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
         model.add(Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu"))
         model.add(Flatten())
         model.add(BatchNormalization())
-        model.add(Dense(units=128, activation="relu"))
+        # model.add(Dense(units=128, activation="relu"))
         model.add(Dense(units=32, activation="relu"))
         model.add(Dropout(0.2))
         model.add(Dense(units=1, activation="sigmoid"))
@@ -1048,6 +1171,80 @@ class Transformer_VG(Abstract_Transformer):
         )
 
 
+class Transformer_VG_Multiple(NN_NIRS_Regressor_Multiple):
+
+    def transformer_encoder(self, inputs, head_size, num_heads, ff_dim, dropout=0):
+        # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
+        # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
+        # Attention and Normalization
+        inputs = tf.cast(inputs, tf.float16)
+        x = MultiHeadAttention(
+            key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
+        x = LayerNormalization(epsilon=1e-6)(x)
+        x = Dropout(dropout)(x)
+        res = x + inputs
+
+        # Feed Forward Part
+        x = Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+        x = Dropout(dropout)(x)
+        x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+        x = LayerNormalization(epsilon=1e-6)(x)
+        res = tf.cast(res, tf.float16)
+        return x + res
+
+    def transformer_model(
+        self,
+        input_shape,
+        head_size=16,
+        num_heads=2,
+        ff_dim=4,
+        num_transformer_blocks=2,
+        mlp_units=[32, 8],
+        dropout=0.05,
+        mlp_dropout=0.1,
+    ):
+        inputs = Input(shape=input_shape)
+        x = inputs
+        for _ in range(num_transformer_blocks):
+            x = self.transformer_encoder(
+                x, head_size, num_heads, ff_dim, dropout)
+
+        x = GlobalAveragePooling1D(data_format="channels_first")(x)
+        output = BatchNormalization()(x)
+        return Model(inputs, output)
+
+    def build_model(self, input_shape_global, params):
+        print("input_shape_global", input_shape_global)
+        input_shape = input_shape_global[2:]
+        start_models = []
+        for i in range(input_shape_global[0]):
+            model = self.transformer_model(
+                input_shape,
+                head_size=16,
+                num_heads=32,
+                ff_dim=8,
+                num_transformer_blocks=1,
+                mlp_units=[32, 8],
+                dropout=0.05,
+                mlp_dropout=0.1,
+            )
+            start_models.append(model)
+
+        combined = concatenate([model.output for model in start_models])
+        # x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
+        # x = BatchNormalization()(x)
+        # x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
+        # x = Flatten()(x)
+        # x = BatchNormalization()(x)
+        # model.add(Dense(units=128, activation="relu"))
+        x = Dense(units=32, activation="relu")(combined)
+        x = Dropout(0.2)(x)
+        z = Dense(units=1, activation="sigmoid")(x)
+
+        model = Model(inputs=[model.input for model in start_models], outputs=z)
+        return model
+
+
 class Transformer_LongRange(Abstract_Transformer):
     def build_model(
         self,
@@ -1116,13 +1313,16 @@ class ML_Regressor(NIRS_Regressor):
         self.model_class = model_class
         NIRS_Regressor.__init__(self, params=params, name=name)
 
-    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None):
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None, discretizer=None):
         signature = inspect.signature(self.model_class.__init__)
         # print(signature)
         return self.model_class(**params)
 
     def name(self):
+        # if self.name == "":
         return re.search(".*'(.*)'.*", str(self.model_class)).group(1)
+        # else:
+            # return self.name
 
 
 # def pls_generator(start, end, step):
