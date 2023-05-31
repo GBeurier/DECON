@@ -28,7 +28,7 @@ from tensorflow.keras.layers import (
     Add,
     GlobalAveragePooling1D,
     GlobalMaxPool1D,
-    Concatenate,
+    Concatenate, concatenate,
     DepthwiseConv1D,
     Permute,
     MaxPooling1D,
@@ -51,6 +51,46 @@ from keras_self_attention import SeqSelfAttention
 from lwpls import LWPLS
 from contextlib import redirect_stdout
 
+
+class Auto_Save_Multiple(Callback):
+    best_weights = []
+
+    def __init__(self, model_name, shape, cb_func=None):
+        super(Auto_Save_Multiple, self).__init__()
+        self.model_name = model_name
+        self.shape = shape
+        self.best = np.Inf
+        self.best_unscaled = np.Inf
+        self.cb = cb_func
+
+    def on_epoch_end(self, epoch, logs=None):
+        current_loss = logs.get("val_loss")
+        lr = self.model.optimizer.learning_rate
+        
+        print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), " - ", "{:.6f}".format(current_loss), "{:.6f}".format(self.best), " "*10, end="\r")
+
+        if np.less(current_loss, self.best):
+            self.best = current_loss
+            Auto_Save_Multiple.best_weights = self.model.get_weights()
+            self.best_epoch = epoch
+
+            if self.cb is not None:
+                res = self.cb(epoch, self.best)
+                RMSE = float(res['RMSE'])
+                if RMSE < self.best_unscaled:
+                    self.best_unscaled = RMSE
+                    
+            print("Best so far >", self.best_unscaled, self.model_name)
+
+
+    def on_train_end(self, logs=None):
+        # if self.params['verbose'] == 2:
+        print("Saved best {0:6.4f} at epoch".format(self.best_unscaled), self.best_epoch)
+        self.model.set_weights(Auto_Save_Multiple.best_weights)
+        self.model.save_weights(self.model_name + ".hdf5")
+        with open(self.model_name + "_sum.txt", 'w') as f:
+            with redirect_stdout(f):
+                self.model.summary()
 
 class Auto_Save(Callback):
     best_weights = []
@@ -121,8 +161,8 @@ def clr(epoch):
     # return 0.05
     cycle_params = {
         "MIN_LR": 0.0001,
-        "MAX_LR": 0.1,
-        "CYCLE_LENGTH": 128,
+        "MAX_LR": 0.05,
+        "CYCLE_LENGTH": 256,
     }
     MIN_LR, MAX_LR, CYCLE_LENGTH = (
         cycle_params["MIN_LR"],
@@ -144,7 +184,7 @@ class NIRS_Regressor:
         self.params = params
         self.name_ = name
 
-    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None):
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None, discretizer=None):
         pass
 
     def name(self):
@@ -759,24 +799,57 @@ class Decon_SepDep(NN_NIRS_Regressor):
         return model
 
 
+class Decon_Sep_Multiple(NN_NIRS_Regressor_Multiple):
+    def build_model(self, input_shape_global, params):
+        print("input_shape_global", input_shape_global)
+        input_shape = input_shape_global[2:]
+        start_models = []
+        for i in range(input_shape_global[0]):
+            input = Input(shape=input_shape)
+            x = SpatialDropout1D(0.2)(input)
+            x = SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, strides=2, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
+            x = BatchNormalization()(x)
+            model = Model(inputs=input, outputs=x)
+            start_models.append(model)
+        
+        combined = concatenate([model.output for model in start_models])
+        x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
+        x = BatchNormalization()(x)
+        x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
+        x = Flatten()(x)
+        x = BatchNormalization()(x)
+        # model.add(Dense(units=128, activation="relu"))
+        x = Dense(units=32, activation="relu")(x)
+        x = Dropout(0.2)(x)
+        z = Dense(units=1, activation="sigmoid")(x)
+
+        model = Model(inputs=[model.input for model in start_models], outputs=z)
+        return model
+
+
 class Decon_Sep(NN_NIRS_Regressor):
     def build_model(self, input_shape, params):
         model = Sequential()
         model.add(Input(shape=input_shape))
+        model.add(SpatialDropout1D(0.2))        
+        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
-        model.add(SpatialDropout1D(0.2))
-        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=64, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
-        model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=64, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
-        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=64, padding="same", activation="relu"))
-        model.add(BatchNormalization())
-        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=64, padding="same", activation="relu"))
+        model.add(SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
         model.add(Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu"))
         model.add(Flatten())
         model.add(BatchNormalization())
-        model.add(Dense(units=128, activation="relu"))
+        # model.add(Dense(units=128, activation="relu"))
         model.add(Dense(units=32, activation="relu"))
         model.add(Dropout(0.2))
         model.add(Dense(units=1, activation="sigmoid"))
@@ -1034,6 +1107,80 @@ class Transformer_VG(Abstract_Transformer):
         )
 
 
+class Transformer_VG_Multiple(NN_NIRS_Regressor_Multiple):
+
+    def transformer_encoder(self, inputs, head_size, num_heads, ff_dim, dropout=0):
+        # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
+        # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
+        # Attention and Normalization
+        inputs = tf.cast(inputs, tf.float16)
+        x = MultiHeadAttention(
+            key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
+        x = LayerNormalization(epsilon=1e-6)(x)
+        x = Dropout(dropout)(x)
+        res = x + inputs
+
+        # Feed Forward Part
+        x = Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+        x = Dropout(dropout)(x)
+        x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+        x = LayerNormalization(epsilon=1e-6)(x)
+        res = tf.cast(res, tf.float16)
+        return x + res
+
+    def transformer_model(
+        self,
+        input_shape,
+        head_size=16,
+        num_heads=2,
+        ff_dim=4,
+        num_transformer_blocks=2,
+        mlp_units=[32, 8],
+        dropout=0.05,
+        mlp_dropout=0.1,
+    ):
+        inputs = Input(shape=input_shape)
+        x = inputs
+        for _ in range(num_transformer_blocks):
+            x = self.transformer_encoder(
+                x, head_size, num_heads, ff_dim, dropout)
+
+        x = GlobalAveragePooling1D(data_format="channels_first")(x)
+        output = BatchNormalization()(x)
+        return Model(inputs, output)
+
+    def build_model(self, input_shape_global, params):
+        print("input_shape_global", input_shape_global)
+        input_shape = input_shape_global[2:]
+        start_models = []
+        for i in range(input_shape_global[0]):
+            model = self.transformer_model(
+                input_shape,
+                head_size=16,
+                num_heads=32,
+                ff_dim=8,
+                num_transformer_blocks=1,
+                mlp_units=[32, 8],
+                dropout=0.05,
+                mlp_dropout=0.1,
+            )
+            start_models.append(model)
+
+        combined = concatenate([model.output for model in start_models])
+        # x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
+        # x = BatchNormalization()(x)
+        # x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
+        # x = Flatten()(x)
+        # x = BatchNormalization()(x)
+        # model.add(Dense(units=128, activation="relu"))
+        x = Dense(units=32, activation="relu")(combined)
+        x = Dropout(0.2)(x)
+        z = Dense(units=1, activation="sigmoid")(x)
+
+        model = Model(inputs=[model.input for model in start_models], outputs=z)
+        return model
+
+
 class Transformer_LongRange(Abstract_Transformer):
     def build_model(self, input_shape, params):
         return super().transformer_model(
@@ -1090,13 +1237,16 @@ class ML_Regressor(NIRS_Regressor):
         self.model_class = model_class
         NIRS_Regressor.__init__(self, params=params, name=name)
 
-    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None):
+    def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None, discretizer=None):
         signature = inspect.signature(self.model_class.__init__)
         # print(signature)
         return self.model_class(**params)
 
     def name(self):
+        # if self.name == "":
         return re.search(".*'(.*)'.*", str(self.model_class)).group(1)
+        # else:
+            # return self.name
 
 
 # def pls_generator(start, end, step):

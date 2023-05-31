@@ -61,11 +61,11 @@ augmentations = [
 preprocessings_list = [
     # None,
     # preprocessings.id_preprocessing(),
-    [("id", pp.IdentityTransformer()), ('haar', pp.Haar()), ('savgol', pp.SavitzkyGolay())],
-    # preprocessings.decon_set(),
+    # [("id", pp.IdentityTransformer()), ('haar', pp.Haar()), ('savgol', pp.SavitzkyGolay())],
+    preprocessings.decon_set(),
     # preprocessings.bacon_set(),
     # preprocessings.small_set(),
-    preprocessings.transf_set(),
+    # preprocessings.transf_set(),
     # preprocessings.optimal_set_2D(),
     # preprocessings.fat_set(),
 ]
@@ -76,7 +76,7 @@ cv_configs = [
     None,
     # {'n_splits':5, 'n_repeats':4},
     # {'n_splits':4, 'n_repeats':2},
-    {'n_splits':4, 'n_repeats':1},
+    # {'n_splits':4, 'n_repeats':1},
 ]
 
 # import os
@@ -94,8 +94,9 @@ for c in cv_configs:
 
 models = [
     # (regressors.ML_Regressor(XGBRegressor), {"n_estimators":200, "max_depth":50, "seed":SEED}),
-    # (regressors.ML_Regressor(PLSRegression), {"n_components":50}),
-    (regressors.Transformer_VG(), {'batch_size':50, 'epoch':10000, 'verbose':0, 'patience':250, 'optimizer':'adam', 'loss':'mse'}),
+    (regressors.ML_Regressor(PLSRegression), {"n_components":80}),
+    # (regressors.Transformer_VG(), {'batch_size':50, 'epoch':10000, 'verbose':0, 'patience':250, 'optimizer':'adam', 'loss':'mse'}),
+    # (regressors.Transformer(), {'batch_size':10, 'epoch':300, 'verbose':0, 'patience':30, 'optimizer':'Adam', 'loss':'mse'}),
     # (regressors.Decon_SepPo(), {'batch_size':50, 'epoch':10000, 'verbose':0, 'patience':1000, 'optimizer':'adam', 'loss':'mse'}),
     # (regressors.FFT_Conv(), {'batch_size':500, 'epoch':20000, 'verbose':0, 'patience':1000, 'optimizer':'adam', 'loss':'mse'}),
     # (regressors.Decon(), {'batch_size':50, 'epoch':30000, 'verbose':0, 'patience':2000, 'optimizer':'adam', 'loss':'mse'}),
@@ -104,22 +105,25 @@ models = [
     # (regressors.MLP(), {'batch_size':1000, 'epoch':20000, 'verbose':0, 'patience':2000, 'optimizer':'adam', 'loss':'mse'}),
     # (regressors.CONV_LSTM(), {'batch_size':1000, 'epoch':20000, 'verbose':0, 'patience':2000, 'optimizer':'adam', 'loss':'mse'}),
     # (regressors.XCeption1D(), {'batch_size':500, 'epoch':10000, 'verbose':0, 'patience':1200, 'optimizer':'adam', 'loss':'mse'}),
-    # (regressors.Transformer(), {'batch_size':10, 'epoch':300, 'verbose':0, 'patience':30, 'optimizer':'Adam', 'loss':'mse'}),
 ]
+
+
+# for i in range(4, 80, 2):
+    # models.append((regressors.ML_Regressor(PLSRegression), {"n_components": i}))
 
 benchmark_size = len(folders) * len(split_configs) * len_cv_configs * len(augmentations) * len(preprocessings_list) * len(models)
 print("Benchmarking", benchmark_size, "runs.")
 
 
 # benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, SEED, resampling='crop', resample_size=2150)
-benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, SEED) #, resampling='resample', resample_size=2048) #bins=5)
-# benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, 42)
+# benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, SEED) #, resampling='resample', resample_size=2048) #bins=5)
+benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, 42)
 # benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, 666)
 # benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, 1234567890)
 
 
 # for folder in folder_list:
-    # # print(ord(str(folder)[17]), ord('A'), ord('M'))
-    # if ord(str(folder)[16]) < ord("L") or ord(str(folder)[16]) > ord("M"):
-    #     continue
-    # benchmark_dataset(folder, SEED, preprocessing_list(), 20, augment=False)
+#     # print(ord(str(folder)[17]), ord('A'), ord('M'))
+#     if ord(str(folder)[16]) < ord("L") or ord(str(folder)[16]) > ord("M"):
+#         continue
+#     benchmark_dataset(folder, SEED, preprocessing_list(), 20, augment=False)
