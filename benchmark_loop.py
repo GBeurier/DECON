@@ -77,8 +77,10 @@ def get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred):
     }
 
 
-def log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time):
+def log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time, model_type):
     datasheet = get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred)
+    datasheet["type"] = model_type
+    datasheet["training_time"] = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
     # Save data
     folder = os.path.join("results", dataset_name)
     if not os.path.isdir(folder):
@@ -221,6 +223,7 @@ def evaluate_pipeline_multiple(desc, model_name, data, transformers, target_RMSE
         y_pred = discretizer.inverse_transform(y_pred)
     elapsed_time = time.time() - start_time
     datasheet = log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time)
+
     datasheet["training_time"] = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
     results[model_name] = datasheet
 
@@ -266,8 +269,12 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     if discretizer is not None:
         y_pred = discretizer.inverse_transform(y_pred)
     elapsed_time = time.time() - start_time
-    datasheet = log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time)
-    datasheet["training_time"] = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+
+    model_type = "ML"
+    if isinstance(model[0], regressors.NN_NIRS_Regressor):
+        model_type = "NN"
+
+    datasheet = log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time, model_type)
     results[model_name] = datasheet
 
     # Save results
@@ -285,7 +292,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
         # regressor.model_.save(canon_name + ".h5")
         pass
     else:
-        joblib.dump(regressor, canon_name + "_reg.pkl")
+        joblib.dump(estimator.regressor_[1], canon_name + "_reg.pkl")
 
     joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
     
@@ -465,7 +472,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                             print("No weight file found for", binary_prefix)
                                         else:
                                             weight_file = max(weight_files, key=os.path.getctime)
-                                            regressor.model_ = tf.keras.models.load_model(weight_file)
+                                            regressor.model = tf.keras.models.load_model(weight_file)
                                             print("loaded weights from", weight_file)
 
                                 transformers = (y_scaler, transformer_pipeline, regressor, model)
