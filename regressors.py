@@ -125,6 +125,7 @@ class Auto_Save(Callback):
         print("Saved best {0:6.4f} at epoch".format(self.best_unscaled), self.best_epoch)
         self.model.set_weights(Auto_Save.best_weights)
         self.model.save_weights(self.model_name + ".hdf5")
+        self.model.save(self.model_name + ".h5")
         with open(self.model_name + "_sum.txt", "w") as f:
             with redirect_stdout(f):
                 self.model.summary()
@@ -799,38 +800,38 @@ class Decon_SepDep(NN_NIRS_Regressor):
         return model
 
 
-class Decon_Sep_Multiple(NN_NIRS_Regressor_Multiple):
-    def build_model(self, input_shape_global, params):
-        print("input_shape_global", input_shape_global)
-        input_shape = input_shape_global[2:]
-        start_models = []
-        for i in range(input_shape_global[0]):
-            input = Input(shape=input_shape)
-            x = SpatialDropout1D(0.2)(input)
-            x = SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu")(x)
-            x = BatchNormalization()(x)
-            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, strides=2, padding="same", activation="relu")(x)
-            x = BatchNormalization()(x)
-            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
-            x = BatchNormalization()(x)
-            x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
-            x = BatchNormalization()(x)
-            model = Model(inputs=input, outputs=x)
-            start_models.append(model)
+# class Decon_Sep_Multiple(NN_NIRS_Regressor_Multiple):
+#     def build_model(self, input_shape_global, params):
+#         print("input_shape_global", input_shape_global)
+#         input_shape = input_shape_global[2:]
+#         start_models = []
+#         for i in range(input_shape_global[0]):
+#             input = Input(shape=input_shape)
+#             x = SpatialDropout1D(0.2)(input)
+#             x = SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu")(x)
+#             x = BatchNormalization()(x)
+#             x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, strides=2, padding="same", activation="relu")(x)
+#             x = BatchNormalization()(x)
+#             x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
+#             x = BatchNormalization()(x)
+#             x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(x)
+#             x = BatchNormalization()(x)
+#             model = Model(inputs=input, outputs=x)
+#             start_models.append(model)
         
-        combined = concatenate([model.output for model in start_models])
-        x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
-        x = BatchNormalization()(x)
-        x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
-        x = Flatten()(x)
-        x = BatchNormalization()(x)
-        # model.add(Dense(units=128, activation="relu"))
-        x = Dense(units=32, activation="relu")(x)
-        x = Dropout(0.2)(x)
-        z = Dense(units=1, activation="sigmoid")(x)
+#         combined = concatenate([model.output for model in start_models])
+#         x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
+#         x = BatchNormalization()(x)
+#         x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
+#         x = Flatten()(x)
+#         x = BatchNormalization()(x)
+#         # model.add(Dense(units=128, activation="relu"))
+#         x = Dense(units=32, activation="relu")(x)
+#         x = Dropout(0.2)(x)
+#         z = Dense(units=1, activation="sigmoid")(x)
 
-        model = Model(inputs=[model.input for model in start_models], outputs=z)
-        return model
+#         model = Model(inputs=[model.input for model in start_models], outputs=z)
+#         return model
 
 
 class Decon_Sep(NN_NIRS_Regressor):
@@ -1107,78 +1108,78 @@ class Transformer_VG(Abstract_Transformer):
         )
 
 
-class Transformer_VG_Multiple(NN_NIRS_Regressor_Multiple):
+# class Transformer_VG_Multiple(NN_NIRS_Regressor_Multiple):
 
-    def transformer_encoder(self, inputs, head_size, num_heads, ff_dim, dropout=0):
-        # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
-        # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
-        # Attention and Normalization
-        inputs = tf.cast(inputs, tf.float16)
-        x = MultiHeadAttention(
-            key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
-        x = LayerNormalization(epsilon=1e-6)(x)
-        x = Dropout(dropout)(x)
-        res = x + inputs
+#     def transformer_encoder(self, inputs, head_size, num_heads, ff_dim, dropout=0):
+#         # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
+#         # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
+#         # Attention and Normalization
+#         inputs = tf.cast(inputs, tf.float16)
+#         x = MultiHeadAttention(
+#             key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
+#         x = LayerNormalization(epsilon=1e-6)(x)
+#         x = Dropout(dropout)(x)
+#         res = x + inputs
 
-        # Feed Forward Part
-        x = Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
-        x = Dropout(dropout)(x)
-        x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
-        x = LayerNormalization(epsilon=1e-6)(x)
-        res = tf.cast(res, tf.float16)
-        return x + res
+#         # Feed Forward Part
+#         x = Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+#         x = Dropout(dropout)(x)
+#         x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+#         x = LayerNormalization(epsilon=1e-6)(x)
+#         res = tf.cast(res, tf.float16)
+#         return x + res
 
-    def transformer_model(
-        self,
-        input_shape,
-        head_size=16,
-        num_heads=2,
-        ff_dim=4,
-        num_transformer_blocks=2,
-        mlp_units=[32, 8],
-        dropout=0.05,
-        mlp_dropout=0.1,
-    ):
-        inputs = Input(shape=input_shape)
-        x = inputs
-        for _ in range(num_transformer_blocks):
-            x = self.transformer_encoder(
-                x, head_size, num_heads, ff_dim, dropout)
+#     def transformer_model(
+#         self,
+#         input_shape,
+#         head_size=16,
+#         num_heads=2,
+#         ff_dim=4,
+#         num_transformer_blocks=2,
+#         mlp_units=[32, 8],
+#         dropout=0.05,
+#         mlp_dropout=0.1,
+#     ):
+#         inputs = Input(shape=input_shape)
+#         x = inputs
+#         for _ in range(num_transformer_blocks):
+#             x = self.transformer_encoder(
+#                 x, head_size, num_heads, ff_dim, dropout)
 
-        x = GlobalAveragePooling1D(data_format="channels_first")(x)
-        output = BatchNormalization()(x)
-        return Model(inputs, output)
+#         x = GlobalAveragePooling1D(data_format="channels_first")(x)
+#         output = BatchNormalization()(x)
+#         return Model(inputs, output)
 
-    def build_model(self, input_shape_global, params):
-        print("input_shape_global", input_shape_global)
-        input_shape = input_shape_global[2:]
-        start_models = []
-        for i in range(input_shape_global[0]):
-            model = self.transformer_model(
-                input_shape,
-                head_size=16,
-                num_heads=32,
-                ff_dim=8,
-                num_transformer_blocks=1,
-                mlp_units=[32, 8],
-                dropout=0.05,
-                mlp_dropout=0.1,
-            )
-            start_models.append(model)
+#     def build_model(self, input_shape_global, params):
+#         print("input_shape_global", input_shape_global)
+#         input_shape = input_shape_global[2:]
+#         start_models = []
+#         for i in range(input_shape_global[0]):
+#             model = self.transformer_model(
+#                 input_shape,
+#                 head_size=16,
+#                 num_heads=32,
+#                 ff_dim=8,
+#                 num_transformer_blocks=1,
+#                 mlp_units=[32, 8],
+#                 dropout=0.05,
+#                 mlp_dropout=0.1,
+#             )
+#             start_models.append(model)
 
-        combined = concatenate([model.output for model in start_models])
-        # x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
-        # x = BatchNormalization()(x)
-        # x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
-        # x = Flatten()(x)
-        # x = BatchNormalization()(x)
-        # model.add(Dense(units=128, activation="relu"))
-        x = Dense(units=32, activation="relu")(combined)
-        x = Dropout(0.2)(x)
-        z = Dense(units=1, activation="sigmoid")(x)
+#         combined = concatenate([model.output for model in start_models])
+#         # x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
+#         # x = BatchNormalization()(x)
+#         # x = Conv1D(filters=32, kernel_size=5, strides=2, padding="same", activation="relu")(x)
+#         # x = Flatten()(x)
+#         # x = BatchNormalization()(x)
+#         # model.add(Dense(units=128, activation="relu"))
+#         x = Dense(units=32, activation="relu")(combined)
+#         x = Dropout(0.2)(x)
+#         z = Dense(units=1, activation="sigmoid")(x)
 
-        model = Model(inputs=[model.input for model in start_models], outputs=z)
-        return model
+#         model = Model(inputs=[model.input for model in start_models], outputs=z)
+#         return model
 
 
 class Transformer_LongRange(Abstract_Transformer):
