@@ -1,4 +1,5 @@
 import datetime
+import glob
 import json
 import math
 import numpy as np
@@ -210,7 +211,7 @@ def init_log(path):
     return dataset_name, results, global_result_file
 
 
-def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, *, bins=None, resampling=None, resample_size=0):
+def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, *, bins=None, resampling=None, resample_size=0, weight_config=False):
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
 
@@ -332,6 +333,20 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                 # print(">"*10, X_tr[0], y_test_pp[0])
                                 cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer)
                                 regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc, discretizer=discretizer)
+
+                                if isinstance(model[0], regressors.NN_NIRS_Regressor) and len(model) == 3:
+                                    weight_config = model[2]
+                                    if isinstance(weight_config, str):
+                                        regressor.load_weights(weight_config)
+                                    elif isinstance(weight_config, bool) and weight_config:
+                                        # search for last created weight file that names starts with run_name
+                                        weight_prefix = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing])
+                                        weight_files = glob.glob(os.path.join("results", desc[0], weight_prefix + '.*' + '.hdf5'))
+                                        weight_file = max(weight_files, key=os.path.getctime)
+                                        regressor.load_weights(weight_file)
+
+
+
                                 transformers = (y_scaler, transformer_pipeline, regressor)
 
                                 y_pred, datasheet = evaluate_pipeline(desc, run_name, data, transformers, target_RMSE, best_current_model, discretizer)
