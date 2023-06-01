@@ -7,9 +7,14 @@ import os
 
 from sklearn.cross_decomposition import PLSRegression
 from xgboost import XGBRegressor
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.cross_decomposition import PLSRegression
+import numpy as np
+
 
 import tensorflow as tf
-import tensorflow_addons as tfa
+# import tensorflow_addons as tfa
+
 from tensorflow.keras.layers import (
     Dense,
     Conv1D,
@@ -41,14 +46,14 @@ from tensorflow.keras.layers import (
     UpSampling1D,
     Lambda
 )
-from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
+from tensorflow.python.keras.models import Model, Sequential
+from tensorflow.python.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from scikeras.wrappers import KerasRegressor
 
 from keras_self_attention import SeqSelfAttention
 
 # from transformers import Transformer
-from lwpls import LWPLS
+from lwpls import LWPLS as LWPLS2
 from contextlib import redirect_stdout
 
 
@@ -1315,7 +1320,15 @@ class ML_Regressor(NIRS_Regressor):
 
     def model(self, X_train, y_train=None, X_test=None, y_test=None, *, run_name="", cb=None, params=None, desc=None, discretizer=None):
         signature = inspect.signature(self.model_class.__init__)
-        # print(signature)
+        if "X_train" in signature.parameters:
+            params["X_train"] = X_train
+        if "y_train" in signature.parameters:
+            params["y_train"] = y_train
+        if "X_test" in signature.parameters:
+            params["X_test"] = X_test
+        if "y_test" in signature.parameters:
+            params["y_test"] = y_test
+            
         return self.model_class(**params)
 
     def name(self):
@@ -1323,6 +1336,173 @@ class ML_Regressor(NIRS_Regressor):
         return re.search(".*'(.*)'.*", str(self.model_class)).group(1)
         # else:
             # return self.name
+
+
+
+
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.cross_decomposition import PLSRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+from sklearn.kernel_approximation import RBFSampler
+
+class NonlinearPLSRegressor(BaseEstimator, RegressorMixin):
+    def __init__(self, n_components=5, poly_degree=2, gamma=0.1):
+        self.n_components = n_components
+        self.poly_degree = poly_degree
+        self.gamma = gamma
+        self.pipeline = None
+
+    def fit(self, X, y):
+        self.pipeline = make_pipeline(
+            # PolynomialFeatures(degree=self.poly_degree),
+            RBFSampler(gamma=self.gamma, n_components=8),
+            PLSRegression(n_components=self.n_components)
+        )
+        self.pipeline.fit(X, y)
+        return self
+
+    def predict(self, X):
+        return self.pipeline.predict(X)
+    
+    
+
+# from sklearn.base import BaseEstimator, RegressorMixin
+# from sklearn.utils.validation import check_X_y, check_array
+# import numpy as np
+
+# class LWPLS(BaseEstimator, RegressorMixin):
+#     def __init__(self, n_components=2, weighting='bisquare'):
+#         self.n_components = n_components
+#         self.weighting = weighting
+    
+#     def fit(self, X, y):
+#         print(">", y.shape)
+#         if isinstance(y, np.ndarray):
+#             y = y.reshape(-1, 1)
+#         else:
+#             y = np.array(y).reshape(-1, 1)
+#         print(">", y.shape, X.shape)
+        
+#         if len(X.shape) == 1:
+#             X = X.reshape(-1, 1)
+#         # Check that X and y have correct shape
+#         X, y = check_X_y(X, y)
+#         print(">", y.shape, X.shape)
+#         # y = y.reshape(-1, 1)
+        
+#         # Store the number of samples and variables
+#         self.n_samples_, self.n_variables_ = X.shape
+        
+#         # Initialize the scores and loading vectors
+#         T = np.zeros((self.n_samples_, self.n_components))
+#         W = np.zeros((self.n_variables_, self.n_components))
+        
+#         # Center the data
+#         self.x_mean_ = np.mean(X, axis=0)
+#         self.y_mean_ = np.mean(y)
+#         print(">>", self.x_mean_.shape, self.y_mean_)
+#         Xc = X - self.x_mean_
+#         yc = y - self.y_mean_
+        
+#         # Iterate over the components
+#         for i in range(self.n_components):
+#             # Initialize the weights for the first component
+#             if i == 0:
+#                 w = Xc.T @ yc
+#             else:
+#                 w = Xc.T @ (yc - T[:, :i] @ np.linalg.pinv(T[:, :i].T @ T[:, :i]) @ T[:, :i].T @ yc)
+            
+#             # Normalize the weights
+#             w /= np.linalg.norm(w)
+            
+#             # Calculate the scores
+#             t = Xc @ w
+            
+#             # Update the loading vectors
+#             W[:, i] = w.ravel()
+            
+#             # Deflate the data
+#             p = (Xc.T @ t) / (t.T @ t)
+#             Xc -= t.reshape(-1, 1) @ p.reshape(1, -1)
+        
+#         # Calculate the regression coefficients
+#         B = W @ np.linalg.pinv(T.T @ T) @ T.T @ y
+        
+#         # Store the coefficients
+#         self.coef_ = B.ravel()
+        
+#         return self
+    
+#     def predict(self, X):
+#         # Check that X has correct shape
+#         X = check_array(X)
+        
+#         # Apply a weighting scheme to the test samples
+#         D = np.sum((X - self.x_mean_)**2, axis=-1)
+        
+#         if self.weighting == 'bisquare':
+#             w = (1 - (D / np.max(D))**2)**2
+#         elif self.weighting == 'tricube':
+#             w = (1 - np.abs(D / np.max(D))**3)**3
+#         else:
+#             w = 1 / D
+        
+#         # Make predictions for each test sample
+#         y_pred = []
+        
+#         for i in range(X.shape[0]):
+#             # Fit a weighted PLS model to the training data using NIPALS algorithm
+#             lwpls = LWPLS(n_components=self.n_components)
+#             lwpls.fit(self.x_mean_, self.y_mean_)
+            
+#             # Update the regression coefficients using sample weights
+#             lwpls.coef_ *= w[i]
+            
+#             # Make a prediction for the current test sample
+#             y_pred.append(lwpls.predict(X[i].reshape(1, -1)))
+        
+#         return np.array(y_pred).ravel()
+
+
+
+
+
+# from sklearn.base import BaseEstimator, RegressorMixin
+# from sklearn.linear_model import Ridge
+# import numpy as np
+
+# class RIDGE(BaseEstimator, RegressorMixin):
+#     def __init__(self, alpha=1.0, weighting='bisquare'):
+#         self.alpha = alpha
+#         self.weighting = weighting
+#         self.ridge = Ridge(alpha=alpha)
+
+#     def fit(self, X_train, y_train):
+#         self.X_train = X_train
+#         self.y_train = y_train
+#         self.ridge.fit(X_train, y_train)
+#         return self
+
+#     def predict(self, X_test):
+#         # Calculate the distance between each test sample and the training samples
+#         D = np.sum((self.X_train - X_test[:, np.newaxis])**2, axis=-1)
+
+#         # Apply a weighting scheme
+#         if self.weighting == 'bisquare':
+#             w = (1 - (D / np.max(D))**2)**2
+#         elif self.weighting == 'tricube':
+#             w = (1 - np.abs(D / np.max(D))**3)**3
+#         else:
+#             w = 1 / D
+
+#         # Build local models for each test sample
+#         y_pred = []
+#         for i in range(X_test.shape[0]):
+#             self.ridge.fit(self.X_train, self.y_train, sample_weight=w[:, i])
+#             y_pred.append(self.ridge.predict(X_test[i].reshape(1, -1)))
+
+#         return np.array(y_pred).ravel()
 
 
 # def pls_generator(start, end, step):
