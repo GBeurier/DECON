@@ -1,0 +1,196 @@
+// Result file structure
+
+{
+    "dataset_name": "dataset_name",
+    "dataset_path": "/path/to/dataset/",
+    "dataset_hash": "1234567890",
+    "dataset_type": "classification",
+    "runs": [
+        {
+            "uid": "short_hash",
+            "seed": 1,
+            "filtering": {
+                "cropping": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 100,
+                    "height": 100
+                },
+                "resampling": {
+                    "threshold": 0.5
+                }
+            },
+            "splitting": {
+                "indexes_path": "/path/to/indexes/1/",
+                "params": {}
+            },
+            "cross_validation": {
+                "indexes_path": "/path/to/indexes/1/",
+                "params": {}
+            },
+            "normalization": {
+                "class_type": {},
+                "params": {},
+                "path": ""
+            },
+            "augmentation":{
+                "pipeline": {},
+                "path": ""
+            },
+            "preprocessing": {
+                "pipeline": {},
+                "path": ""
+            },
+            "model": {
+                "uid": "short_hash",
+                "starting_checkpoint": "/path/to/checkpoint/1/",
+                "checkpoint": "/path/to/model/1/", // or ["/path/to/model/1/", "/path/to/model/2/"]
+                "name": "CNN",
+                "type": "tensorflow", // or ["pytorch", "sklearn"]
+            },
+            "runtime": "00:00:00",
+            "scores": {
+                "cv_scores": [
+
+                ],
+                "prediction_path": "/path/to/predictions/1/",
+                "accuracy": 0.9,
+                "precision": 0.9,
+                "recall": 0.9,
+                "f1": 0.9
+            }
+        },
+        {
+            "uid": "short_hash",
+            "seed": 1,
+            "filtering": {
+                "cropping": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 100,
+                    "height": 100
+                },
+                "resampling": {
+                    "threshold": 0.5
+                }
+            },
+            "splitting": {
+                "indexes_path": "/path/to/indexes/1/",
+                "params": {}
+            },
+            "cross_validation": {
+                "indexes_path": "/path/to/indexes/1/",
+                "params": {}
+            },
+            "normalization": {
+                "class_type": {},
+                "params": {},
+                "path": ""
+            },
+            "augmentation":{
+                "pipeline": {},
+                "path": ""
+            },
+            "preprocessing": {
+                "pipeline": {},
+                "path": ""
+            },
+            "model": {
+                "uid": "short_hash",
+                "name": "Stacking",
+                "type": "stack",
+                "stack_model": {
+                    "uid": "short_hash",
+                    "starting_checkpoint": "/path/to/checkpoint/1/",
+                    "checkpoint": "/path/to/model/1/", // or ["/path/to/model/1/", "/path/to/model/2/"]
+                    "name": "Random Forest",
+                    "type": "sklearn",
+                },
+                "stack": [
+                    {
+                        "uid": "short_hash",
+                        "starting_checkpoint": "/path/to/checkpoint/1/",
+                        "checkpoint": "/path/to/model/1/", // or ["/path/to/model/1/", "/path/to/model/2/"]
+                        "name": "CNN",
+                        "type": "tensorflow",
+                    },
+                    {
+                        "uid": "short_hash",
+                        "starting_checkpoint": "/path/to/checkpoint/1/",
+                        "checkpoint": "/path/to/model/1/", // or ["/path/to/model/1/", "/path/to/model/2/"]
+                        "name": "CNN",
+                        "type": "tensorflow",
+                    },
+                    {
+                        "uid": "short_hash",
+                        "starting_checkpoint": "/path/to/checkpoint/1/",
+                        "checkpoint": "/path/to/model/1/", // or ["/path/to/model/1/", "/path/to/model/2/"]
+                        "name": "CNN",
+                        "type": "pytorch",
+                    },
+                ],
+                
+            },
+            "runtime": "00:00:00",
+            "scores": {
+                "cv_scores": [
+
+                ],
+                "prediction_path": "/path/to/predictions/1/",
+                "accuracy": 0.9,
+                "precision": 0.9,
+                "recall": 0.9,
+                "f1": 0.9
+            }
+        },
+    ]
+}
+
+
+// Config file structure
+
+{
+    "seed": [42],  # int
+    "random_scope": "dataset",  # str - ["dataset", "global", "models"]
+    "dataset": ["path1", "path2"],  # List[str] - [path1, path2, ...]
+    "filtering": [
+        [],  # List[(TransformerMixin, Dict)]  - [transformer, params] -> to create sklearn pipeline
+    ],
+    "splitting": [
+        [],  # List[(Splitter, Dict)]  - [splitter, params] -> to create dataset indexes trees
+    ],
+    "cross_validation": [
+        [],  # List[(CrossValidator, Dict)]  - [cross_validator, params] -> to create cross validation indexes trees
+    ],
+    "preprocessings": [
+        [],  # List[(TransformerMixin, Dict)]  - [transformer, params] -> to create sklearn pipeline
+    ],
+    "models": [
+        [],  # List[(Estimator, Dict)]  - [estimator, params] -> to create sklearn pipeline
+    ],
+}
+
+// Data cache structure
+{
+    "dataset_name": {
+        "data_hash": { // hash of the raw data
+            "processing": [],
+            "path": ,
+            "X_train": np.ndarray,  // for multiple inputs transform in tuples
+            "y_train": np.ndarray,
+            "X_test": np.ndarray,
+            "y_test": np.ndarray,
+            "X_val": np.ndarray,
+            "y_val": np.ndarray,
+            // "processed":{
+            "processed_hash":{ // hash of the processed data
+                "processing": Dict,
+                "processing_hash": "",
+                "data": [],
+                "processed":{
+                    "processing_hash":{}
+                }
+            // }
+        }
+    }
+}
