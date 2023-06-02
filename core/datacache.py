@@ -1,15 +1,13 @@
 import csv
 from functools import reduce
 import gzip
+import json
 import logging
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import traceback
 import re
-
-
-
 
 
 DATACACHE = {}
@@ -110,7 +108,7 @@ def load_csv(file_path):
     na_row_list = []
     if len(na_coords) > 0:
         na_row_list = list(set(na_coords[:, 0]))
-        logging.info("Rows to remove: %s", na_row_list)
+        logging.info("Rows to remove after filtering: %s", na_row_list)
         # data = data.dropna(how='any', axis=0)
         # logging.info("Data shape after dropna(any) rows:", data.shape)
 
@@ -130,6 +128,7 @@ def register_dataset(dataset_config):
     directory and the index of the column containing the target variable
     :return: a tuple containing the cache hash, dataset name, and cache.
     """
+    logging.info("Registering dataset: %s", dataset_config)
     y_files = [("y_train", "*ycal*"), ("y_test", "*ytest*"), ("y_val", "*yval*")]
     X_files = [("X_train", "*Xcal*"), ("X_test", "*Xtest*"), ("X_val", "*Xval*")]
     files = X_files.copy()
@@ -139,7 +138,9 @@ def register_dataset(dataset_config):
         files.extend(y_files)
         dataset_path = dataset_config
     elif isinstance(dataset_config, tuple):
-        dataset_path, y_col = dataset_config
+        dataset_path, y_cols = dataset_config
+        if isinstance(y_cols, int):
+            y_cols = [y_cols]
 
     dataset_dir = Path(dataset_path)
     dataset_name = dataset_dir.name
@@ -164,52 +165,64 @@ def register_dataset(dataset_config):
 
     for key, pattern in files:
         files = list(dataset_dir.glob(pattern))
-        if len(files) > 1:
-            csv_list = [load_csv(f) for f in files if f.is_file()]
-            cache[key] = tuple(x[0] for x in csv_list)
-            removed_rows[key] = tuple(x[1] for x in csv_list)
-        elif len(files) == 1:
-            if files[0].is_file():
-                cache[key], removed_rows[key] = load_csv(files[0])
-
+        csv_list = [load_csv(f) for f in files if f.is_file()]
+        cache[key] = [x[0] for x in csv_list]
+        removed_rows[key] = [x[1] for x in csv_list]
+        
+    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
     # Get y from a col of X
-    if isinstance(dataset_path, tuple):
+    if isinstance(dataset_config, tuple):
+        assert len(cache["X_train"]) == 1, "Cannot initialize y columns (%s). More than one X_train file found for %s." % (y_cols, dataset_name)
+        
+        logging.info("Getting y cols %s from X for %s.", y_cols, dataset_name)
         for i, (y_key, pattern) in enumerate(y_files):
             x_key = X_files[i][0]
-            if isinstance(cache[x_key], tuple):
-                cache[y_key] = tuple(cache[x_key][j][:, y_col] for j in range(len(cache[x_key])))
-                # cache[x_key] = tuple(np.delete(cache[x_key][j], y_col, axis=1) for j in range(len(cache[x_key])))
+            if len(cache[x_key])  == 0:
+                logging.warning("Unable to init %s, no %s data found for %s.", y_key, x_key, dataset_name)
             else:
-                cache[y_key] = cache[x_key][:, y_col]
-                # cache[x_key] = np.delete(cache[x_key], y_col, axis=1)
+                cache[y_key] = cache[x_key][0][:, y_cols]
+                cache[x_key] = [np.delete(cache[x_key][0], y_cols, axis=1)]
+                logging.info("%s, %s shapes: %s, %s", x_key, y_key, np.array(cache[x_key]).shape, np.array(cache[y_key]).shape)
+            
+    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
     
-
-
     # Remove rows with missing values
     for i, (y_key, pattern) in enumerate(y_files):
-            x_key = X_files[i][0]
-            if isinstance(cache[x_key], tuple):
-                indexes_to_remove = reduce(np.union1d, ([removed_rows[x_key][j] for j in range(len(removed_rows[x_key]))] + [removed_rows[y_key][j] for j in range(len(removed_rows[y_key]))])).astype(np.int32)
-                if indexes_to_remove.shape[0] > 0:
-                    logging.warning("Removing rows: %s", str(indexes_to_remove))
-                    cache[x_key] = tuple(np.delete(cache[x_key][j], indexes_to_remove, axis=0) for j in range(len(cache[x_key])))
-                    cache[y_key] = tuple(np.delete(cache[y_key][j], indexes_to_remove, axis=0) for j in range(len(cache[y_key])))
-            else:
-                indexes_to_remove = np.union1d(removed_rows[x_key], removed_rows[y_key]).astype(np.int32)
-                if indexes_to_remove.shape[0] > 0:
-                    logging.warning("Removing rows: %s", str(indexes_to_remove))
-                    cache[x_key] = np.delete(cache[x_key], indexes_to_remove, axis=0)
-                    cache[y_key] = np.delete(cache[y_key], indexes_to_remove, axis=0)
+        x_key = X_files[i][0]
+        
+        logging.info("Probing if rows with missing values from %s and %s should be removed.", x_key, y_key)
+        x_removed_rows = [removed_rows[x_key][j] for j in range(len(removed_rows[x_key])) if len(removed_rows[x_key][j]) > 0]
+        logging.info("x_removed_rows: %s", x_removed_rows)
+        y_removed_rows = [removed_rows[y_key][j] for j in range(len(removed_rows[y_key])) if len(removed_rows[y_key][j]) > 0]
+        logging.info("y_removed_rows: %s", y_removed_rows)
+        
+        if len(x_removed_rows) > 0 or len(y_removed_rows) > 0:
+            indexes_to_remove = np.array(reduce(np.union1d, (x_removed_rows + y_removed_rows))).astype(np.int32)
+            logging.info("indexes_to_remove: %s", indexes_to_remove)
+            
+            logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+            logging.warning("Removing rows: %s", str(indexes_to_remove))
+            new_cache = []
+            for k, dataset in enumerate(cache[x_key]):
+                cache[x_key][k] = list(np.delete(np.array(dataset), indexes_to_remove, axis=0))
+            cache[y_key][0] = np.delete(cache[y_key][0], indexes_to_remove, axis=0)
 
+
+    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
     # check if cache X and y are consistent
     for i, (y_key, pattern) in enumerate(y_files):
         x_key = X_files[i][0]
-        if isinstance(cache[x_key], tuple):
-            for j in range(len(cache[x_key])):
-                assert (cache[x_key][j] is None and cache[y_key][j] is None) or (cache[x_key][j].shape[0] == cache[y_key][j].shape[0])
-        else:
-            assert (cache[x_key] is None and cache[y_key] is None) or (cache[x_key].shape[0] == cache[y_key].shape[0])
+        y_dataset = cache[y_key]
+        cache[y_key] = np.array(cache[y_key])
+        cache[x_key] = np.array(cache[x_key])
+        
+        for dataset in cache[x_key]:
+            if y_dataset is None:
+                assert dataset is None, "X and y are not consistent for %s. %s is None but not %s" % (dataset_name, y_key, x_key)
+            else:
+                assert dataset is not None, "X and y are not consistent for %s. %s is not None but %s is" % (dataset_name, y_key, x_key)
+                assert dataset.shape[0] == y_dataset.shape[0], "X and y are not consistent for %s. %s has %s rows but %s has %s." % (dataset_name, x_key, dataset.shape[0], y_key, y_dataset.shape[0])
 
     cache_hash = data_hash([cache[key] for key in sorted(cache.keys())])
     cache["path"] = dataset_path

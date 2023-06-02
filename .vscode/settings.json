@@ -11,5 +11,6 @@
         "scipy",
         "sklearn"
     ],
-    "python.analysis.pylanceLspClientEnabled": false
+    "python.analysis.pylanceLspClientEnabled": false,
+    "python.analysis.typeCheckingMode": "off"
 }
