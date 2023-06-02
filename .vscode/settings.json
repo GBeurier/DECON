@@ -10,5 +10,6 @@
         "ndarray",
         "scipy",
         "sklearn"
-    ]
+    ],
+    "python.analysis.pylanceLspClientEnabled": false
 }
