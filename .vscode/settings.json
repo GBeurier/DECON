@@ -8,9 +8,22 @@
         "dtypes",
         "isna",
         "ndarray",
+        "pinard",
+        "preprocessings",
         "scipy",
-        "sklearn"
+        "sklearn",
+        "SXPY"
     ],
     "python.analysis.pylanceLspClientEnabled": false,
-    "python.analysis.typeCheckingMode": "off"
+    "python.analysis.typeCheckingMode": "off",
+    "pythonTestExplorer.testFramework": "pytest",
+    "python.formatting.provider": "black",
+    "python.linting.flake8CategorySeverity.E": "Information",
+    "python.linting.flake8Enabled": true,
+    "python.testing.pytestEnabled": true,
+    "python.analysis.gotoDefinitionInStringLiteral": true,
+    "pythonIndent.trimLinesWithOnlyWhitespace": true,
+    "pythonIndent.useTabOnHangingIndent": true,
+    "docwriter.progress.trackFunctions": true,
+    "docwriter.progress.trackMethods": false
 }

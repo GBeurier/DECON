@@ -1,6 +1,5 @@
-// Result file structure
-
-{
+# Result file structure
+results = {
     "dataset_name": "dataset_name",
     "dataset_path": "/path/to/dataset/",
     "dataset_hash": "1234567890",
@@ -147,50 +146,79 @@
 }
 
 
-// Config file structure
-
-{
+# Pool Config file
+training_config = {
     "seed": [42],  # int
     "random_scope": "dataset",  # str - ["dataset", "global", "models"]
-    "dataset": ["path1", "path2"],  # List[str] - [path1, path2, ...]
-    "filtering": [
-        [],  # List[(TransformerMixin, Dict)]  - [transformer, params] -> to create sklearn pipeline
+    # List[str] - [path1, path2, ...]
+    "paths": [("data/test_data", [1,2,3]), "data/_Raisin/Raisin_Tavernier_830_GFratio", "data/_RefSet/ALPINE_C_424_Murguzur_RMSE1.16"],
+    # List[(Splitter, Dict)]  - [splitter, params] -> to create dataset indexes trees
+    "pre_indexation": {
+        "step_1": {
+            "type": "filter",
+            "method": [("crop", filters.Crop, {"start":100, "end":500}), ("crop", filters.Crop, {"start":0, "end":1000})],# None],
+        },
+        "step_2": {
+            "type": "filter",
+            "method": [("resample", filters.Uniform_FT_Resample, {"resample_size": 800})],# None],
+        }
+    },
+    "indexation": [
+        ("random_split", indexer.RandomSampling, {"test_size": 0.2}, {}),
+        ("random_cv", indexer.RandomSampling, {"folds": 4, "repeat": 1}, {}),
+        # None,
+        ("random_cv", indexer.SXPY, {"folds": 4, "repeat": 1}, {'metric':"euclidean", 'pca_components':250}),
     ],
-    "splitting": [
-        [],  # List[(Splitter, Dict)]  - [splitter, params] -> to create dataset indexes trees
-    ],
-    "cross_validation": [
-        [],  # List[(CrossValidator, Dict)]  - [cross_validator, params] -> to create cross validation indexes trees
-    ],
-    "preprocessings": [
-        [],  # List[(TransformerMixin, Dict)]  - [transformer, params] -> to create sklearn pipeline
-    ],
+    "post_indexation": {
+        "step_1": {
+            "type": "augmentation",
+            "method": [
+                # None,
+                [(6, augmentation.Rotate_Translate())],
+                [(3, augmentation.Rotate_Translate()),(2, augmentation.Random_X_Operation()),(1, augmentation.Random_Spline_Addition()),],
+                [(3, augmentation.Rotate_Translate()),(2, augmentation.Random_X_Operation()),(2, augmentation.Random_Spline_Addition()),]
+            ],
+        },
+        "step_2": {
+            "type": "preprocessing",
+            "method": [
+                # None,
+                preprocessings.id_preprocessing(),
+                [("id", pp.IdentityTransformer()), ('haar', pp.Haar()), ('savgol', pp.SavitzkyGolay())],
+                preprocessings.decon_set(),
+            ]
+        },
+    },
     "models": [
-        [],  # List[(Estimator, Dict)]  - [estimator, params] -> to create sklearn pipeline
+        # ()
+        (regressors.Transformer_NIRS, {'batch_size':500, 'epoch':10000, 'verbose':0, 'patience':1000, 'optimizer':'adam', 'loss':'mse'}),
+        (XGBRegressor, {"n_estimators":200, "max_depth":50}),
+        (PLSRegression, {"n_components":50}),
+        (regressors.Decon_SepPo, {'batch_size':50, 'epoch':10000, 'verbose':0, 'patience':1000, 'optimizer':'adam', 'loss':'mse'}),
     ],
 }
 
-// Data cache structure
-{
-    "dataset_name": {
-        "data_hash": { // hash of the raw data
-            "processing": [],
-            "path": ,
-            "X_train": np.ndarray,  // for multiple inputs transform in tuples
-            "y_train": np.ndarray,
-            "X_test": np.ndarray,
-            "y_test": np.ndarray,
-            "X_val": np.ndarray,
-            "y_val": np.ndarray,
-            // "processed":{
-            "processed_hash":{ // hash of the processed data
-                "processing": Dict,
-                "processing_hash": "",
-                "data": [],
-                "processed":{
-                    "processing_hash":{}
-                }
-            // }
-        }
-    }
-}
+
+
+
+# FORMATS of PROCESSING transformerMixin
+# (inst|class|function)
+# (class|function, params)
+# ("name", inst|class|function)
+# ("name", class|function, params)
+
+# FORMATS of AUGMENTATION transformerMixin
+# (inst|class|function)
+# (inst|class|function, nb)
+# (class|function, params)
+# (class|function, params, nb)
+# ("name", inst|class|function)
+# ("name", inst|class|function, nb)
+# ("name", class|function, params)
+# ("name", class|function, params, nb)
+
+# FORMATS of MODELS estimators
+# (inst|class|function)
+# (inst|class|function, params)
+# ("name", inst|class|function)
+# ("name", inst|class|function, params)

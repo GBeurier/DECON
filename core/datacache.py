@@ -17,7 +17,7 @@ def data_hash(data):
     """
     The function generates a hash value for a given data input, which can be a list, tuple, or numpy
     array.
-    
+
     :param data: The input data that needs to be hashed. It can be of any data type such as string,
     integer, float, list, tuple, or numpy array
     :return: The function `data_hash` takes in a data object and returns a hexadecimal string
@@ -34,12 +34,30 @@ def data_hash(data):
     return hex(abs(hash(str(data))))[2:]
 
 
+def hash_pipeline(pipeline):  # TODO test the type of Mixin (str, class, function, instance) and provide a identical hash for each
+    """
+    The function takes a pipeline as input, converts it to a string, hashes it, takes the absolute
+    value, and returns the hexadecimal representation of the hash without the '0x' prefix.
+
+    :param pipeline: The parameter "pipeline" is a variable that is expected to contain a pipeline
+    object or a string representation of a pipeline object. The function "hash_pipeline" takes this
+    parameter and returns a hexadecimal representation of the hash value of the string representation of
+    the pipeline object
+    :return: The function `hash_pipeline` takes a `pipeline` argument and returns a hexadecimal string
+    representation of the absolute hash value of the string representation of the `pipeline` argument.
+    The `[2:]` at the end of the return statement is used to remove the first two characters of the
+    hexadecimal string, which are always '0x'.
+    """
+    return hex(abs(hash(str(pipeline))))[2:]
+
+
 def get_properties(file_path):
     """
     This function reads the first two lines of a file and determines if there is a header and the
     delimiter used in the file.
-    
-    :param file_path: The path to the file that we want to extract properties from
+
+    :param file_path: The path to the file that needs to be analyzed. It can be a regular file or a
+    compressed file with a ".gz" extension
     :return: a tuple containing two values: a boolean value indicating whether the file has a header row
     or not, and a string value indicating the delimiter used in the file.
     """
@@ -58,7 +76,7 @@ def get_properties(file_path):
         header = True
     if "." not in first_line:
         header = True
-    
+
     sniffer = csv.Sniffer()
     dialect = sniffer.sniff(second_line)
     # logging.info(dialect.delimiter)
@@ -67,11 +85,9 @@ def get_properties(file_path):
 
 def load_csv(file_path):
     """
-    This function loads a CSV file, infers its properties, corrects the delimiter if necessary, reads
-    the file into a pandas dataframe, cleans the data by dropping empty columns and rows, removes rows
-    with missing values, and returns the cleaned data as a numpy array along with a list of rows that
-    were removed.
-    
+    This function loads a CSV file, cleans and processes the data, and returns it as a numpy array along
+    with a list of rows that contain missing values.
+
     :param file_path: The file path of the CSV file to be loaded
     :return: a tuple containing the loaded data as a numpy array and a list of row indices that contain
     missing values.
@@ -120,148 +136,202 @@ def load_csv(file_path):
 
 def register_dataset(dataset_config):
     """
-    This function registers a dataset by loading and processing its X and y files, removing rows with
-    missing values, and storing the resulting data in a cache.
-    
-    :param dataset_config: The configuration of the dataset to be registered. It can be either a string
-    representing the path to the dataset directory or a tuple containing the path to the dataset
-    directory and the index of the column containing the target variable
+    This function registers a dataset by loading files, removing rows with missing values, and checking
+    if the X and y data are consistent.
+
+    :param dataset_config: The configuration of the dataset to be registered, which can be either a
+    string representing the path to the dataset directory or a tuple containing the path to the dataset
+    directory and the indices of the columns to be used as the target variable
     :return: a tuple containing the cache hash, dataset name, and cache.
     """
+
     logging.info("Registering dataset: %s", dataset_config)
-    y_files = [("y_train", "*ycal*"), ("y_test", "*ytest*"), ("y_val", "*yval*")]
-    X_files = [("X_train", "*Xcal*"), ("X_test", "*Xtest*"), ("X_val", "*Xval*")]
-    files = X_files.copy()
 
-    dataset_path = ""
+    x_files_re = [("X_train", "*Xcal*"), ("X_test", "*Xtest*"), ("X_val", "*Xval*")]
+    y_files_re = [("y_train", "*ycal*"), ("y_test", "*ytest*"), ("y_val", "*yval*")]
+
+    dataset_dir = None
     if isinstance(dataset_config, str):
-        files.extend(y_files)
-        dataset_path = dataset_config
+        dataset_dir = Path(dataset_config)
+        assert dataset_dir.is_dir(), "dataset_dir must be a directory but is of type %s: %s" % (type(dataset_dir), dataset_dir)
     elif isinstance(dataset_config, tuple):
-        dataset_path, y_cols = dataset_config
-        if isinstance(y_cols, int):
-            y_cols = [y_cols]
+        path, y_cols = dataset_config
+        dataset_dir = Path(path)
+        assert isinstance(y_cols, list), "y_cols must be a list but is of type %s: %s" % (type(y_cols), y_cols)
+        y_cols = [y_cols]
+        if dataset_dir.is_file():
+            x_files_re = [("X_train", str(dataset_dir))]
 
-    dataset_dir = Path(dataset_path)
+    if not dataset_dir.exists():
+        logging.error("Path does not exist: %s", path)
+        return None, None, None
+
     dataset_name = dataset_dir.name
 
-    cache = {
-        "X_train": None,
-        "X_test": None,
-        "X_val": None,
-        "y_train": None,
-        "y_test": None,
-        "y_val": None
-    }
+    # Load Files
+    cache = {"X_train": None, "X_test": None, "X_val": None, "y_train": None, "y_test": None, "y_val": None}
+    removed_rows = {"X_train": [], "X_test": [], "X_val": [], "y_train": [], "y_test": [], "y_val": []}
 
-    removed_rows = {
-        "X_train": [],
-        "X_test": [],
-        "X_val": [],
-        "y_train": [],
-        "y_test": [],
-        "y_val": []
-    }
-
-    for key, pattern in files:
-        files = list(dataset_dir.glob(pattern))
+    for key, regex in x_files_re:
+        files = list(dataset_dir.glob(regex))
         csv_list = [load_csv(f) for f in files if f.is_file()]
         cache[key] = [x[0] for x in csv_list]
         removed_rows[key] = [x[1] for x in csv_list]
-        
+
+    if not isinstance(dataset_config, tuple):
+        for key, regex in y_files_re:
+            files = list(dataset_dir.glob(regex))
+
+            if len(files) == 0:
+                logging.warning("No y file %s - %s found for %s.", key, regex, dataset_name)
+                continue
+            assert len(files) == 1, "Cannot initialize %s %s dataset. More than one (%s) file found. Multiple y should be available in the next version." % (dataset_name, key, regex)
+
+            csv_list = [load_csv(f) for f in files if f.is_file()]
+            cache[key], removed_rows[key] = csv_list[0]
+
     logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
-    # Get y from a col of X
+    # Reconstruct nested Y data ###
     if isinstance(dataset_config, tuple):
-        assert len(cache["X_train"]) == 1, "Cannot initialize y columns (%s). More than one X_train file found for %s." % (y_cols, dataset_name)
-        
+        assert len(cache["X_train"]) == 1, "Cannot initialize %s %s columns. More than one X_train file found." % (y_cols, dataset_name)
         logging.info("Getting y cols %s from X for %s.", y_cols, dataset_name)
-        for i, (y_key, pattern) in enumerate(y_files):
-            x_key = X_files[i][0]
-            if len(cache[x_key])  == 0:
-                logging.warning("Unable to init %s, no %s data found for %s.", y_key, x_key, dataset_name)
-            else:
+
+        for i, (y_key, _) in enumerate(y_files_re):
+            x_key = x_files_re[i][0]
+            if len(cache[x_key]) > 0:
                 cache[y_key] = cache[x_key][0][:, y_cols]
                 cache[x_key] = [np.delete(cache[x_key][0], y_cols, axis=1)]
-                logging.info("%s, %s shapes: %s, %s", x_key, y_key, np.array(cache[x_key]).shape, np.array(cache[y_key]).shape)
-            
+            else:
+                logging.warning("Unable to init %s %s, no %s data found.", dataset_name, y_key, x_key)
+
     logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
-    
+
     # Remove rows with missing values
-    for i, (y_key, pattern) in enumerate(y_files):
-        x_key = X_files[i][0]
-        
-        logging.info("Probing if rows with missing values from %s and %s should be removed.", x_key, y_key)
+    for i, (y_key, _) in enumerate(y_files_re):
+        x_key = x_files_re[i][0]
         x_removed_rows = [removed_rows[x_key][j] for j in range(len(removed_rows[x_key])) if len(removed_rows[x_key][j]) > 0]
-        logging.info("x_removed_rows: %s", x_removed_rows)
         y_removed_rows = [removed_rows[y_key][j] for j in range(len(removed_rows[y_key])) if len(removed_rows[y_key][j]) > 0]
+
+        logging.info("Probing if rows with missing values from %s and %s should be removed.", x_key, y_key)
+        logging.info("x_removed_rows: %s", x_removed_rows)
         logging.info("y_removed_rows: %s", y_removed_rows)
-        
+
         if len(x_removed_rows) > 0 or len(y_removed_rows) > 0:
             indexes_to_remove = np.array(reduce(np.union1d, (x_removed_rows + y_removed_rows))).astype(np.int32)
-            logging.info("indexes_to_remove: %s", indexes_to_remove)
-            
+
             logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
-            logging.warning("Removing rows: %s", str(indexes_to_remove))
-            new_cache = []
+            logging.warning("Removing rows: %s in %s %s", indexes_to_remove, dataset_name, x_key)
+
             for k, dataset in enumerate(cache[x_key]):
                 cache[x_key][k] = list(np.delete(np.array(dataset), indexes_to_remove, axis=0))
-            cache[y_key][0] = np.delete(cache[y_key][0], indexes_to_remove, axis=0)
-
+            cache[y_key] = np.delete(cache[y_key], indexes_to_remove, axis=0)
 
     logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+
     # check if cache X and y are consistent
-    for i, (y_key, pattern) in enumerate(y_files):
-        x_key = X_files[i][0]
+    for i, (y_key, pattern) in enumerate(y_files_re):
+        x_key = x_files_re[i][0]
         y_dataset = cache[y_key]
         cache[y_key] = np.array(cache[y_key])
         cache[x_key] = np.array(cache[x_key])
-        
+
         for dataset in cache[x_key]:
             if y_dataset is None:
                 assert dataset is None, "X and y are not consistent for %s. %s is None but not %s" % (dataset_name, y_key, x_key)
             else:
                 assert dataset is not None, "X and y are not consistent for %s. %s is not None but %s is" % (dataset_name, y_key, x_key)
-                assert dataset.shape[0] == y_dataset.shape[0], "X and y are not consistent for %s. %s has %s rows but %s has %s." % (dataset_name, x_key, dataset.shape[0], y_key, y_dataset.shape[0])
+                assert dataset.shape[0] == y_dataset.shape[0], "X and y are not consistent for %s. %s has %s rows but %s has %s." % (
+                    dataset_name, x_key, dataset.shape[0], y_key, y_dataset.shape[0])
 
     cache_hash = data_hash([cache[key] for key in sorted(cache.keys())])
-    cache["path"] = dataset_path
+    cache["path"] = str(dataset_dir)
+    cache["origin"] = None
 
     DATACACHE[dataset_name] = {}
     DATACACHE[dataset_name][cache_hash] = cache
 
-    return cache_hash, dataset_name, cache
+    return cache_hash, dataset_name
 
 
-# def get(self, dataset, *, indexes=None):
-#     return self._cache.get(dataset)
+def get_data_from_uid(dataset, uid):
+    """
+    This function retrieves data from a cache based on a given dataset and unique identifier.
 
-# def set(self, dataset, data):
-#     self._cache[dataset] = data
-
-# def clear(self):
-#     self._cache.clear()
-
-# def has(self, dataset):
-#     return dataset in self._cache
-
-# def free(self, uid):
-#     pass
-
-
-
+    :param dataset: a string representing the name of a dataset that is stored in a global variable
+    called DATACACHE
+    :param uid: uid stands for "user ID" and is a unique identifier for a specific user in a dataset.
+    The function "get_data_from_uid" takes in a dataset and a uid as parameters and returns the data
+    associated with that uid in the dataset
+    :return: data associated with a specific uid from a dataset stored in a global variable called
+    DATACACHE.
+    """
+    assert dataset in DATACACHE, "Unknown dataset %s" % dataset
+    assert uid in DATACACHE[dataset], "Unknown uid %s for dataset %s" % (uid, dataset)
+    return DATACACHE[dataset][uid]
 
 
+def fake_transform(p, X):  # TODO: replace by a call to the pipeliner
+    logging.info("Fake transform %s", p)
+    return X
 
 
-# 
-# import numpy as np
-# import pandas as pd
-# import os
-# import re
-# from scipy import signal
+def get_data(dataset, from_uid=None, previous_pipelines=None, pipeline=None):
+    """
+    This function retrieves data from a cache based on a given dataset, previous pipelines, and a
+    current pipeline.
 
-# # from pinard.utils import load_csv
+    :param dataset: a string representing the name of the dataset to retrieve data from. It should be a
+    key in the DATACACHE dictionary
+    :param from_uid: The unique identifier of the data to start the pipeline from. If None, the function
+    will look for data with no origin in the cache and use that as the starting point
+    :param previous_pipelines: A list of pipelines that have already been applied to the dataset. Each
+    pipeline is represented as a dictionary of transformation functions and their parameters
+    :param pipeline: A pipeline is a sequence of data processing steps. In this function, it refers to a
+    specific pipeline that is applied to the data in the cache. If a pipeline is provided, it will be
+    applied to the data before returning it
+    :return: the data corresponding to the specified dataset, after applying any previous pipelines and
+    the current pipeline (if provided).
+    """
+    assert dataset in DATACACHE, "Unknown dataset %s" % dataset
+
+    cache = DATACACHE[dataset]
+    if from_uid is None:
+        for k, v in cache.items():
+            if v["origin"] is None:
+                from_uid = k
+                break
+
+    assert from_uid is not None, "No data found for dataset %s" % dataset
+
+    if previous_pipelines is not None:
+        for p in previous_pipelines:
+            if p is None:
+                continue
+
+            from_uid += hash_pipeline(p)
+            if from_uid not in cache:
+                # instanciate pipeline p
+                new_data = fake_transform(p, cache[from_uid])
+                cache[from_uid] = new_data
+
+    assert from_uid is not None, "Failed to apply previous pipelines" % previous_pipelines
+
+    if pipeline is not None:
+        from_uid += hash_pipeline(pipeline)
+        if from_uid not in cache:
+            # instanciate pipeline pipeline
+            new_data = fake_transform(pipeline, cache[from_uid])
+            cache[from_uid] = new_data
+
+    return cache[from_uid]
+
+
+def clear(dataset=None):
+    if dataset is None:
+        DATACACHE.clear()
+    else:
+        DATACACHE[dataset].clear()
 
 
 # class WrongFormatError(Exception):
@@ -276,201 +346,3 @@ def register_dataset(dataset_config):
 #         if type(y) is np.ndarray:
 #             msg += "Invalid Y shape: {}".format(y.shape)
 #         super().__init__(msg)
-
-
-# def load_csv(x_fname, y_fname=None, y_cols=0, *, sep=None, x_hdr=None, y_hdr=None, x_index_col=None, y_index_col=None, autoremove_na=True):
-#     assert y_fname is not None or y_cols is not None
-#     # TODO - add assert/exceptions on non-numerical columns
-#     # TODO - better management of NaN and Null (esp exception msg)
-
-#     x_df = pd.read_csv(x_fname, sep=sep, header=x_hdr, index_col=x_index_col, skip_blank_lines=False)
-    
-
-#     x_data = x_df.astype(np.float32).values
-#     x_rows_del = []
-#     if autoremove_na:
-#         if np.isnan(x_data).any():
-#             x_rows_del, _ = np.where(np.isnan(x_data))
-#             logging.info("Missing X:", x_rows_del)
-#             x_data = np.delete(x_data, x_rows_del, axis=0)
-
-#     if len(x_data.shape) != 2 or len(x_data) == 0:
-#         raise WrongFormatError(x_data, None)
-
-#     y_data = None
-#     if y_fname is None:
-#         y_data = x_data[:, y_cols]
-#         x_data = np.delete(x_data, y_cols, axis=1)
-#     else:
-#         y_df = pd.read_csv(y_fname, sep=sep, header=y_hdr, index_col=y_index_col, skip_blank_lines=False)
-#         y_df = y_df.replace(r"^\s*$", np.nan, regex=True).apply(pd.to_numeric, args=("coerce",))
-#         y_data = y_df.astype(np.float32).values
-#         if autoremove_na:
-#             if len(x_rows_del) > 0:
-#                 y_data = np.delete(y_data, x_rows_del, axis=0)
-
-#             if np.isnan(y_data).any():
-#                 y_rows_del, _ = np.where(np.isnan(y_data))
-#                 # logging.info("Missing Y:", y_rows_del)
-
-#                 # logging.info("NULLL", np.where(np.isnull(y_data)))
-#                 y_data = np.delete(y_data, y_rows_del, axis=0)
-#                 x_data = np.delete(x_data, y_rows_del, axis=0)
-
-#         if len(y_data.shape) != 2:
-#             raise WrongFormatError(x_data, y_data)
-
-#         if y_cols != -1:
-#             y_data = y_data[:, y_cols]
-
-#     if len(x_data) != len(y_data):
-#         raise WrongFormatError(x_data, y_data)
-
-#     return x_data, y_data.reshape(-1,1)
-
-
-# def load_csv_multiple(x_fname, y_fname=None, y_cols=0, *, sep=None, x_hdr=None, y_hdr=None, x_index_col=None, y_index_col=None, autoremove_na=True):
-#     assert y_fname is not None or y_cols is not None
-#     # TODO - add assert/exceptions on non-numerical columns
-#     # TODO - better management of NaN and Null (esp exception msg)
-
-
-#     x_data = []
-#     for i in range(len(x_fname)):
-#         x_df = pd.read_csv(x_fname[i], sep=sep, header=x_hdr, index_col=x_index_col, skip_blank_lines=False)
-#         x_df = x_df.replace(r"^\s*$", np.nan, regex=True).apply(pd.to_numeric, args=("coerce",))
-#         x_data.append(x_df.astype(np.float32).values)
-#     x_data = np.array(x_data)
-#     logging.info(x_data.shape)
-
-#     x_rows_del = []
-#     if autoremove_na:
-#         for i in range(len(x_data)):
-#             if np.isnan(x_data[i]).any():
-#                 x_del, _ = np.where(np.isnan(x_data[i]))
-#                 x_rows_del = np.union1d(x_rows_del, x_del)
-#                 logging.info("Missing X:", x_rows_del)
-#         x_data = np.delete(x_data, x_rows_del, axis=1)
-
-#     if len(x_rows_del) > 0:
-#         logging.info("X rows deleted: ", x_rows_del)
-
-#     if len(x_data.shape) != 3 or len(x_data[0]) == 0:
-#         raise WrongFormatError(x_data, None)
-
-#     y_data = None
-#     if y_fname is None:
-#         y_data = x_data[:, y_cols]
-#         x_data = np.delete(x_data, y_cols, axis=2)
-#     else:
-#         y_df = pd.read_csv(y_fname, sep=sep, header=y_hdr, index_col=y_index_col, skip_blank_lines=False)
-#         y_df = y_df.replace(r"^\s*$", np.nan, regex=True).apply(pd.to_numeric, args=("coerce",))
-#         y_data = y_df.astype(np.float32).values
-#         if autoremove_na:
-#             if len(x_rows_del) > 0:
-#                 y_data = np.delete(y_data, x_rows_del, axis=0)
-
-#             if np.isnan(y_data).any():
-#                 y_rows_del, _ = np.where(np.isnan(y_data))
-#                 y_data = np.delete(y_data, y_rows_del, axis=0)
-#                 x_data = np.delete(x_data, y_rows_del, axis=1)
-#                 if len(y_rows_del) > 0:
-#                     logging.info("Y rows deleted: ", y_rows_del)
-
-#         if len(y_data.shape) != 2:
-#             raise WrongFormatError(x_data, y_data)
-
-#         if y_cols != -1:
-#             y_data = y_data[:, y_cols]
-
-#     if len(x_data[0]) != len(y_data):
-#         raise WrongFormatError(x_data, y_data)
-
-#     return x_data, y_data.reshape(-1,1)
-
-
-
-
-# def load_data(path, resampling=None, resample_size=0):
-
-#     if resampling is not None:
-#         logging.info('(', resampling, resample_size, ')', end=" ")
-
-#     projdir = Path(path)
-#     files = tuple(next(projdir.glob(n)) for n in ["*Xcal*", "*Ycal*"])
-#     X_train, y_train = load_csv(files[0], files[1], x_hdr=None, y_hdr=None, sep=";")
-
-#     if resampling == "crop":
-#         X_train = X_train[:, :resample_size]
-#     elif resampling == "resample":
-#         X_train_rs = []
-#         for i in range(len(X_train)):
-#             X_train_rs.append(signal.resample(X_train[i], resample_size))
-#         X_train = np.array(X_train_rs)
-
-#     X_valid, y_valid = np.empty(X_train.shape), np.empty(y_train.shape)
-#     regex = re.compile(".*Xval.*")
-#     for file in os.listdir(path):
-#         if regex.match(file):
-#             files = tuple(next(projdir.glob(n)) for n in ["*Xval*", "*Yval*"])
-#             X_valid, y_valid = load_csv(files[0], files[1], x_hdr=0, y_hdr=0, sep=";")
-
-#             if resampling == "crop":
-#                 X_valid = X_valid[:, :resample_size]
-#             elif resampling == "resample":
-#                 X_valid_rs = []
-#                 for i in range(len(X_valid)):
-#                     X_valid_rs.append(signal.resample(X_valid[i], resample_size))
-#                 X_valid = np.array(X_valid_rs)
-
-#     # X_train, X_valid = X_train[:,0:1024], X_valid[:,0:1024]
-    
-#     return X_train, y_train, X_valid, y_valid
-
-
-# def load_data_multiple(path, resampling=None, resample_size=0):
-
-#     if resampling is not None:
-#         logging.info('(', resampling, resample_size, ')', end=" ")
-
-#     projdir = Path(path)
-    
-#     x_files = []
-#     for x_file in projdir.glob("*Xcal*"):
-#         x_files.append(x_file)
-#     y_file = next(projdir.glob("*Ycal*"))
-#     X_train, y_train = load_csv_multiple(x_files, y_file, x_hdr=None, y_hdr=None, sep=";")
-
-#     if resampling == "crop":
-#         X_train = X_train[:, :, :resample_size]
-#     elif resampling == "resample":
-#         new_X_train = []
-#         for j in range(len(X_train)):
-#             X_train_rs = []
-#             for i in range(len(X_train[j])):
-#                 X_train_rs.append(signal.resample(X_train[j][i], resample_size))
-#             new_X_train.append(X_train_rs)
-#         X_train = np.array(new_X_train)
-        
-#     X_valid, y_valid = np.empty(X_train.shape), np.empty(y_train.shape)
-#     regex = re.compile(".*Xval.*")
-#     for file in os.listdir(path):
-#         if regex.match(file):
-#             x_files = []
-#             for x_file in projdir.glob("*Xval*"):
-#                 x_files.append(x_file)
-#             y_file = next(projdir.glob("*Yval*"))
-#             X_valid, y_valid = load_csv_multiple(x_files, y_file, x_hdr=None, y_hdr=None, sep=";")
-
-#             if resampling == "crop":
-#                 X_valid = X_valid[:, :, :resample_size]
-#             elif resampling == "resample":
-#                 new_X_valid = []
-#                 for j in range(len(X_valid)):
-#                     X_valid_rs = []
-#                     for i in range(len(X_valid[j])):
-#                         X_valid_rs.append(signal.resample(X_valid[j][i], resample_size))
-#                     new_X_valid.append(X_valid_rs)
-#                 X_valid = np.array(new_X_valid)
-                
-#     return X_train, y_train, X_valid, y_valid
