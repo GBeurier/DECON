@@ -9,8 +9,9 @@ from pathlib import Path
 import traceback
 import re
 
+import core.pipeliner as pipeliner
 
-DATACACHE = {}
+DATACACHE = {}  # TODO convert datacache and cache to dataclass
 
 
 def data_hash(data):
@@ -134,19 +135,17 @@ def load_csv(file_path):
     return data, na_row_list
 
 
-def register_dataset(dataset_config):
+def _prepare_dataset(dataset_config):
     """
-    This function registers a dataset by loading files, removing rows with missing values, and checking
-    if the X and y data are consistent.
+    This function prepares the dataset for loading by setting up file patterns and checking the validity
+    of the dataset directory.
 
-    :param dataset_config: The configuration of the dataset to be registered, which can be either a
-    string representing the path to the dataset directory or a tuple containing the path to the dataset
-    directory and the indices of the columns to be used as the target variable
-    :return: a tuple containing the cache hash, dataset name, and cache.
+    :param dataset_config: The configuration for the dataset, which can be either a string representing
+    the path to the dataset directory or a tuple containing the path to the dataset directory and a list
+    of column names for the target variable(s)
+    :return: a tuple containing dataset_dir, x_files_re, y_files_re, and y_cols.
     """
-
-    logging.info("Registering dataset: %s", dataset_config)
-
+    # Prepare loading
     x_files_re = [("X_train", "*Xcal*"), ("X_test", "*Xtest*"), ("X_val", "*Xval*")]
     y_files_re = [("y_train", "*ycal*"), ("y_test", "*ytest*"), ("y_val", "*yval*")]
 
@@ -166,8 +165,24 @@ def register_dataset(dataset_config):
         logging.error("Path does not exist: %s", path)
         return None, None, None
 
-    dataset_name = dataset_dir.name
+    return dataset_dir, x_files_re, y_files_re, y_cols
 
+
+def _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_name):
+    """
+    This function loads files from a given directory based on specified regular expressions and returns
+    a cache and removed rows.
+
+    :param dataset_dir: The directory where the dataset files are stored
+    :param x_files_re: A list of tuples where each tuple contains a key and a regular expression to
+    match the X files in the dataset directory
+    :param y_files_re: A list of tuples containing the regular expression for matching the y files and
+    the corresponding key to store the loaded data in the cache dictionary
+    :param dataset_config: The dataset configuration, which is expected to be a tuple. If it is not a
+    tuple, then the function assumes that there is only one y file and loads it accordingly
+    :param dataset_name: The name of the dataset being loaded
+    :return: a tuple containing two dictionaries: `cache` and `removed_rows`.
+    """
     # Load Files
     cache = {"X_train": None, "X_test": None, "X_val": None, "y_train": None, "y_test": None, "y_val": None}
     removed_rows = {"X_train": [], "X_test": [], "X_val": [], "y_train": [], "y_test": [], "y_val": []}
@@ -190,24 +205,44 @@ def register_dataset(dataset_config):
             csv_list = [load_csv(f) for f in files if f.is_file()]
             cache[key], removed_rows[key] = csv_list[0]
 
-    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+    return cache, removed_rows
 
-    # Reconstruct nested Y data ###
-    if isinstance(dataset_config, tuple):
-        assert len(cache["X_train"]) == 1, "Cannot initialize %s %s columns. More than one X_train file found." % (y_cols, dataset_name)
-        logging.info("Getting y cols %s from X for %s.", y_cols, dataset_name)
 
-        for i, (y_key, _) in enumerate(y_files_re):
-            x_key = x_files_re[i][0]
-            if len(cache[x_key]) > 0:
-                cache[y_key] = cache[x_key][0][:, y_cols]
-                cache[x_key] = [np.delete(cache[x_key][0], y_cols, axis=1)]
-            else:
-                logging.warning("Unable to init %s %s, no %s data found.", dataset_name, y_key, x_key)
+def _build_y_data(cache, x_files_re, y_files_re, y_cols, dataset_name):
+    """
+    This function extracts specific columns from X_train to use as y data for a given dataset.
 
-    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+    :param cache: A dictionary containing cached data
+    :param x_files_re: A regular expression pattern used to match the X data files in the cache
+    :param y_files_re: A regular expression pattern used to match the names of the y data files
+    :param y_cols: The columns to be extracted from the X data to form the y data
+    :param dataset_name: The name of the dataset being processed
+    """
+    assert len(cache["X_train"]) == 1, "Cannot initialize %s %s columns. More than one X_train file found." % (y_cols, dataset_name)
+    logging.info("Getting y cols %s from X for %s.", y_cols, dataset_name)
 
-    # Remove rows with missing values
+    for i, (y_key, _) in enumerate(y_files_re):
+        x_key = x_files_re[i][0]
+        if len(cache[x_key]) > 0:
+            cache[y_key] = cache[x_key][0][:, y_cols]
+            cache[x_key] = [np.delete(cache[x_key][0], y_cols, axis=1)]
+        else:
+            logging.warning("Unable to init %s %s, no %s data found.", dataset_name, y_key, x_key)
+
+
+def _clean_dataset(cache, x_files_re, y_files_re, removed_rows, dataset_name):
+    """
+    This function removes rows with missing values from the cache for a given dataset.
+
+    :param cache: A dictionary containing the datasets to be cleaned
+    :param x_files_re: A regular expression pattern used to match the filenames of the X dataset files
+    :param y_files_re: A regular expression pattern used to match the names of the files containing the
+    target variables in a dataset
+    :param removed_rows: A dictionary containing information about which rows have been removed from
+    each dataset. The keys are the names of the datasets and the values are lists of lists, where each
+    inner list contains the indexes of the rows that have been removed
+    :param dataset_name: The name of the dataset being cleaned
+    """
     for i, (y_key, _) in enumerate(y_files_re):
         x_key = x_files_re[i][0]
         x_removed_rows = [removed_rows[x_key][j] for j in range(len(removed_rows[x_key])) if len(removed_rows[x_key][j]) > 0]
@@ -227,10 +262,19 @@ def register_dataset(dataset_config):
                 cache[x_key][k] = list(np.delete(np.array(dataset), indexes_to_remove, axis=0))
             cache[y_key] = np.delete(cache[y_key], indexes_to_remove, axis=0)
 
-    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
-    # check if cache X and y are consistent
-    for i, (y_key, pattern) in enumerate(y_files_re):
+def _validate_dataset(cache, x_files_re, y_files_re, dataset_name):
+    """
+    This function validates the consistency of X and y datasets in a cache for a given dataset name and
+    regular expressions for X and y keys.
+
+    :param cache: a dictionary containing the datasets to be validated
+    :param x_files_re: a regular expression pattern for matching the keys of the input data files
+    :param y_files_re: A regular expression pattern used to match the keys of the y datasets in the
+    cache
+    :param dataset_name: a string representing the name of the dataset being validated
+    """
+    for i, (y_key, _) in enumerate(y_files_re):
         x_key = x_files_re[i][0]
         y_dataset = cache[y_key]
         cache[y_key] = np.array(cache[y_key])
@@ -244,6 +288,36 @@ def register_dataset(dataset_config):
                 assert dataset.shape[0] == y_dataset.shape[0], "X and y are not consistent for %s. %s has %s rows but %s has %s." % (
                     dataset_name, x_key, dataset.shape[0], y_key, y_dataset.shape[0])
 
+
+def register_dataset(dataset_config):
+    """
+    This function registers a dataset by preparing, loading, cleaning, validating, and storing it in the
+    DATACACHE.
+
+    :param dataset_config: A dictionary or tuple containing configuration information for the dataset
+    :return: a tuple containing the cache hash and the dataset name.
+    """
+
+    logging.info("Registering dataset: %s", dataset_config)
+    dataset_dir, x_files_re, y_files_re, y_cols = _prepare_dataset(dataset_config)
+    dataset_name = dataset_dir.name
+
+    cache, removed_rows = _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_name)
+    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+
+    # Reconstruct nested Y data ###
+    if isinstance(dataset_config, tuple):
+        _build_y_data(cache, x_files_re, y_files_re, y_cols, dataset_name)
+        logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+
+    # Remove rows with missing values
+    _clean_dataset(cache, x_files_re, y_files_re, removed_rows, dataset_name)
+    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+
+    # check if cache X and y are consistent
+    _validate_dataset(cache, x_files_re, y_files_re, dataset_name)
+
+    # Put data in DATACACHE
     cache_hash = data_hash([cache[key] for key in sorted(cache.keys())])
     cache["path"] = str(dataset_dir)
     cache["origin"] = None
@@ -271,9 +345,15 @@ def get_data_from_uid(dataset, uid):
     return DATACACHE[dataset][uid]
 
 
-def fake_transform(p, X):  # TODO: replace by a call to the pipeliner
-    logging.info("Fake transform %s", p)
-    return X
+def _apply_pipeline(dataset, pipeline, from_uid):
+    cache = DATACACHE[dataset]
+    next_uid = from_uid + hash_pipeline(pipeline)
+    if next_uid not in cache:
+        new_data = pipeliner.apply_pipeline(pipeline, cache[from_uid])
+        cache[next_uid] = new_data
+        from_uid = next_uid
+
+    return from_uid
 
 
 def get_data(dataset, from_uid=None, previous_pipelines=None, pipeline=None):
@@ -308,41 +388,25 @@ def get_data(dataset, from_uid=None, previous_pipelines=None, pipeline=None):
         for p in previous_pipelines:
             if p is None:
                 continue
-
-            from_uid += hash_pipeline(p)
-            if from_uid not in cache:
-                # instanciate pipeline p
-                new_data = fake_transform(p, cache[from_uid])
-                cache[from_uid] = new_data
-
-    assert from_uid is not None, "Failed to apply previous pipelines" % previous_pipelines
+            from_uid = _apply_pipeline(dataset, p, from_uid)
+            assert from_uid is not None, "Failed to apply previous pipeline" % p
 
     if pipeline is not None:
-        from_uid += hash_pipeline(pipeline)
-        if from_uid not in cache:
-            # instanciate pipeline pipeline
-            new_data = fake_transform(pipeline, cache[from_uid])
-            cache[from_uid] = new_data
+        from_uid = _apply_pipeline(dataset, pipeline, from_uid)
+        assert from_uid is not None, "Failed to apply pipeline" % pipeline
 
     return cache[from_uid]
 
 
 def clear(dataset=None):
+    """
+    This function clears either the entire DATACACHE or a specific dataset within it.
+
+    :param dataset: The dataset parameter is an optional argument that specifies the name of the dataset
+    to be cleared from the DATACACHE dictionary. If no dataset name is provided, the entire DATACACHE
+    dictionary will be cleared
+    """
     if dataset is None:
         DATACACHE.clear()
     else:
         DATACACHE[dataset].clear()
-
-
-# class WrongFormatError(Exception):
-#     """Exception raised when X et Y datasets are invalid."""
-
-#     def __init__(self, x, y):
-#         self.x = x
-#         self.y = y
-#         msg = ""
-#         if type(x) is np.ndarray:
-#             msg += "Invalid X shape: {}".format(x.shape) + " "
-#         if type(y) is np.ndarray:
-#             msg += "Invalid Y shape: {}".format(y.shape)
-#         super().__init__(msg)
