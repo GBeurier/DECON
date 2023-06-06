@@ -89,6 +89,17 @@ def get_properties(file_path):
     dialect = sniffer.sniff(line_to_sniff)
     # logging.info(dialect.delimiter)
 
+    if header is False:
+        header_test = first_line.split(dialect.delimiter)
+        s = 0
+        for v in header_test:
+            v = float(v)
+            if v < s:
+                header = False
+                break
+            s = v
+            header = True
+
     file.close()
     return header, dialect.delimiter
 
