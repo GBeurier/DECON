@@ -111,9 +111,16 @@ def get_properties(file_path):
     number_delimiter = "."
     if "," in line_to_sniff and dialect.delimiter != ",":
         number_delimiter = ","
+    delimiter = dialect.delimiter
+    logging.info("Header inference: %s", header)
+    logging.info("Delimiter inference: %s", delimiter)
+    logging.info("Number delimiter inference: %s", number_delimiter)
+    if re.search(r"[0-9\.]", delimiter):
+        delimiter = " "
+        logging.warning("Delimiter correction for %s: \\n", file_path)
 
     file.close()
-    return header, dialect.delimiter, number_delimiter
+    return header, delimiter, number_delimiter
 
 
 def load_csv(file_path):
@@ -129,11 +136,7 @@ def load_csv(file_path):
     # print("loading file", file_path)
     data = None
     header, delimiter, nb_delimiter = get_properties(file_path)
-    logging.info("Header inference: %s", header)
-    logging.info("Delimiter inference: %s", delimiter)
-    if re.search(r"[0-9\.]", delimiter):
-        delimiter = "\n"
-        logging.warning("Delimiter correction for %s: \\n", file_path)
+
     try:
         if header:
             data = pd.read_csv(file_path, header=0, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False, decimal=nb_delimiter)
