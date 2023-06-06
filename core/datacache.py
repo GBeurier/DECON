@@ -74,34 +74,46 @@ def get_properties(file_path):
     header = False
     if re.search(r'[a-df-zA-DF-Z]', first_line):
         header = True
-    if "." not in first_line:
-        header = True
+    # if "." not in first_line:
+    #     header = True
 
     sniffer = csv.Sniffer()
-    line_to_sniff = second_line
-    # print("**********", repr(line_to_sniff), "**********")
-    # print(">", repr(line_to_sniff.strip()))
-    # print(re.search(r'[a-df-zA-DF-Z]', line_to_sniff))
-    # print(re.search(r'[0-9]', line_to_sniff))
-    while re.search(r'[a-df-zA-DF-Z]', line_to_sniff) != None or not line_to_sniff.strip() or not re.search(r'[0-9]', line_to_sniff):
-        print("not this one")
+    line_to_sniff = first_line
+    while re.search(r'[a-df-zA-DF-Z]', line_to_sniff) is not None or not line_to_sniff.strip() or not re.search(r'[0-9]', line_to_sniff):
         line_to_sniff = file.readline().decode('utf-8')
     dialect = sniffer.sniff(line_to_sniff)
-    # logging.info(dialect.delimiter)
+    # print(dialect.delimiter)
 
     if header is False:
         header_test = first_line.split(dialect.delimiter)
-        s = 0
-        for v in header_test:
-            v = float(v)
-            if v < s:
-                header = False
-                break
-            s = v
-            header = True
+        if len(header_test) > 50:
+            s = 0
+            for v in header_test:
+                if v.strip() == "":
+                    continue
+                try:
+                    v = float(v)
+                except Exception as e:
+                    logging.error("Error while converting to float: %s", v)
+                    logging.error(e)
+                    logging.error(traceback.format_exc())
+                if v < s:
+                    header = False
+                    break
+                s = v
+                header = True
+    # print("header is", header)
+
+    line_to_sniff = second_line
+    while re.search(r'[a-df-zA-DF-Z]', line_to_sniff) is not None or not line_to_sniff.strip() or not re.search(r'[0-9]', line_to_sniff):
+        line_to_sniff = file.readline().decode('utf-8')
+
+    number_delimiter = "."
+    if "," in line_to_sniff and dialect.delimiter != ",":
+        number_delimiter = ","
 
     file.close()
-    return header, dialect.delimiter
+    return header, dialect.delimiter, number_delimiter
 
 
 def load_csv(file_path):
@@ -114,8 +126,9 @@ def load_csv(file_path):
     missing values.
     """
     logging.info("Loading file: %s", file_path)
+    # print("loading file", file_path)
     data = None
-    header, delimiter = get_properties(file_path)
+    header, delimiter, nb_delimiter = get_properties(file_path)
     logging.info("Header inference: %s", header)
     logging.info("Delimiter inference: %s", delimiter)
     if re.search(r"[0-9\.]", delimiter):
@@ -123,9 +136,9 @@ def load_csv(file_path):
         logging.warning("Delimiter correction for %s: \\n", file_path)
     try:
         if header:
-            data = pd.read_csv(file_path, header=0, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False)
+            data = pd.read_csv(file_path, header=0, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False, decimal=nb_delimiter)
         else:
-            data = pd.read_csv(file_path, header=None, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False)
+            data = pd.read_csv(file_path, header=None, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False, decimal=nb_delimiter)
     except Exception as e:
         logging.error("Error loading file: %s", file_path)
         logging.error("Exception %s", e)
@@ -313,7 +326,7 @@ def _validate_dataset(cache, x_files_re, y_files_re, dataset_name):
             else:
                 assert dataset is not None, "X and y are not consistent for %s. %s is not None but %s is" % (dataset_name, y_key, x_key)
                 assert dataset.shape[0] == y_dataset.shape[0], "X and y are not consistent for %s. %s has %s rows but %s has %s." % (
-                    dataset_name, x_key, dataset.shape[0], y_key, y_dataset.shape[0])
+                    dataset_name, x_key, dataset.shape, y_key, y_dataset.shape)
 
 
 def register_dataset(dataset_config):
@@ -331,7 +344,7 @@ def register_dataset(dataset_config):
 
     cache, removed_rows = _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_name)
     logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
-    print("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+    # print("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
     # Reconstruct nested Y data ###
     if isinstance(dataset_config, tuple):
