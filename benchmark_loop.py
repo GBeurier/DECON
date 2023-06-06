@@ -1,3 +1,4 @@
+import core.datacache as datacache
 import datetime
 import glob
 import json
@@ -39,25 +40,24 @@ import regressors
 from pinard import augmentation, sklearn, model_selection
 
 
-
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.preprocessing import KBinsDiscretizer
 
 
 class regressor_stratified_cv:
-    def __init__(self,n_splits=10,n_repeats=2,group_count=10,random_state=0,strategy='quantile'):
-        self.group_count=group_count
-        self.strategy=strategy
-        self.cvkwargs=dict(n_splits=n_splits,n_repeats=n_repeats,random_state=random_state)
-        self.cv=RepeatedStratifiedKFold(**self.cvkwargs)
-        self.discretizer=KBinsDiscretizer(n_bins=self.group_count,encode='ordinal',strategy=self.strategy)  
-            
-    def split(self,X,y,groups=None):
-        kgroups=self.discretizer.fit_transform(y[:,None])[:,0]
-        return self.cv.split(X,kgroups,groups)
-    
-    def get_n_splits(self,X,y,groups=None):
-        return self.cv.get_n_splits(X,y,groups)
+    def __init__(self, n_splits=10, n_repeats=2, group_count=10, random_state=0, strategy='quantile'):
+        self.group_count = group_count
+        self.strategy = strategy
+        self.cvkwargs = dict(n_splits=n_splits, n_repeats=n_repeats, random_state=random_state)
+        self.cv = RepeatedStratifiedKFold(**self.cvkwargs)
+        self.discretizer = KBinsDiscretizer(n_bins=self.group_count, encode='ordinal', strategy=self.strategy)
+
+    def split(self, X, y, groups=None):
+        kgroups = self.discretizer.fit_transform(y[:, None])[:, 0]
+        return self.cv.split(X, kgroups, groups)
+
+    def get_n_splits(self, X, y, groups=None):
+        return self.cv.get_n_splits(X, y, groups)
 
 
 def get_datasheet(dataset_name, model_name, path, SEED, y_valid, y_pred):
@@ -148,7 +148,7 @@ def get_callback_predict_multiple(dataset_name, model_name, path, SEED, target_R
         if current_estimator is None:
             return
 
-        y_pred = current_estimator.predict([current_X_test[0],current_X_test[1], current_X_test[2]])
+        y_pred = current_estimator.predict([current_X_test[0], current_X_test[1], current_X_test[2]])
         y_pred = current_y_scaler.inverse_transform(y_pred.reshape(-1, 1)).reshape(-1)
         if discretizer is not None:
             y_pred = discretizer.inverse_transform(y_pred)
@@ -180,7 +180,7 @@ def evaluate_pipeline_multiple(desc, model_name, data, transformers, target_RMSE
     for i in range(len(X_train)):
         transformer_pipeline.fit(X_train[i])
         new_X_train.append(transformer_pipeline.transform(X_train[i]))
-    
+
     X_train = np.array(new_X_train)
     y_train = y_scaler.transform(y_train.reshape(-1, 1)).reshape(-1)
     # # Construct pipeline
@@ -202,21 +202,21 @@ def evaluate_pipeline_multiple(desc, model_name, data, transformers, target_RMSE
     global current_y_scaler
     current_y_scaler = y_scaler
     print(X_train.shape, y_train.shape, X_valid.shape, y_valid.shape)
-    
+
     # X_train = np.swapaxes(X_train, 0, 1)
     # X_valid = np.swapaxes(X_valid, 0, 1)
     print("Before fitting", X_train.shape, y_train.shape, X_valid.shape, y_valid.shape)
     current_estimator.fit(
-         [X_train[0], X_train[1], X_train[2]], y_train, 
-         validation_data=([X_valid[0],X_valid[1], X_valid[2]], y_valid),
-         verbose=estimator[1]["verbose"], 
-         epochs=estimator[1]["epoch"], 
-         batch_size=estimator[1]["batch_size"], 
-         callbacks=estimator[2]
+        [X_train[0], X_train[1], X_train[2]], y_train,
+        validation_data=([X_valid[0], X_valid[1], X_valid[2]], y_valid),
+        verbose=estimator[1]["verbose"],
+        epochs=estimator[1]["epoch"],
+        batch_size=estimator[1]["batch_size"],
+        callbacks=estimator[2]
     )
     # Evaluate estimator
 
-    y_pred = current_estimator.predict([X_valid[0],X_valid[1], X_valid[2]])
+    y_pred = current_estimator.predict([X_valid[0], X_valid[1], X_valid[2]])
     y_pred = y_scaler.inverse_transform(y_pred.reshape(-1, 1)).reshape(-1)
     y_valid = y_scaler.inverse_transform(y_valid.reshape(-1, 1)).reshape(-1)
     if discretizer is not None:
@@ -261,6 +261,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     current_X_test = X_valid
     global current_y_test
     current_y_test = y_valid
+    # print(estimator)
     estimator.fit(X_train, y_train)
     # save estimator
     # with open("estimator.pkl", "wb") as f:
@@ -285,7 +286,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     folder = os.path.join("results", dataset_name)
     canon_name = folder + "/" + model_name
 
-    print("Saving model to", canon_name)
+    # print("Saving model to", canon_name)
     joblib.dump(transformer_pipeline, canon_name + "_tf.pkl")
     # print(regressor)
     if isinstance(model[0], regressors.NN_NIRS_Regressor):
@@ -295,9 +296,8 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
         joblib.dump(estimator.regressor_[1], canon_name + "_reg.pkl")
 
     joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
-    
-    
-    print(datasheet["RMSE"], " (", target_RMSE, "|", best_current_model, ") in", datasheet["training_time"])
+
+    print(datasheet["RMSE"], " (", target_RMSE, ") in", datasheet["training_time"])  # "|", best_current_model,
     return y_pred, datasheet
 
 
@@ -317,10 +317,10 @@ def get_augmentation(augmentation_config):
 
 
 def init_log(path):
-    ### DATASET in the form (name)_RMSE(val)
+    # DATASET in the form (name)_RMSE(val)
     dataset_name = os.path.split(path)[-1]
 
-    ### Get global results database for this dataset
+    # Get global results database for this dataset
     global_result_file = "results/" + dataset_name + "_results.json"
     results = {}
     if os.path.isfile(global_result_file):
@@ -353,7 +353,15 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
         # Load data
         print("="*10, str(dataset_name).upper(), end=" ")
         print("Loading data...", path)
-        X, y, X_valid, y_valid = load_data(path, resampling, resample_size)
+
+        # X, y, X_valid, y_valid = load_data(path, resampling, resample_size)
+        # print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
+
+        dataset_hash, dataset_name = datacache.register_dataset(path)
+        print("Dataset hash", dataset_hash, dataset_name)
+        cache = datacache.get_data_from_uid(dataset_name, dataset_hash)
+        X, y, X_valid, y_valid = cache["X_train"][0], cache["y_train"], cache["X_val"][0], cache["y_val"]
+
         print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
 
         # Split data
@@ -383,12 +391,12 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                 name_split = 'Spl_' + str(split_config['method']) + "_" + str(hash(frozenset(split_config)))[0:3]
 
             # print("Split >", X_train.shape, y_train.shape, X_test.shape, y_test.shape, X_valid.shape, y_valid.shape)
-            
+
             # Generate training sets
             for cv_config in cv_configs:
                 # print("CV >", cv_config)
 
-                folds = iter([([],[])])
+                folds = iter([([], [])])
                 folds_size = 1
                 name_cv = "NoCV"
                 time_str_cv = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
@@ -399,7 +407,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                     # folds = cv.split(X_train, y_train)
                     folds_size = cv.get_n_splits()
                     name_cv = "CV_" + str(cv_config['n_splits']) + "_" + str(cv_config['n_repeats'])
-                
+
                 # Loop data
                 fold_i = 1
                 cv_predictions = {}
@@ -412,7 +420,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                     name_fold = "Fold_" + str(fold_i) + '(' + str(folds_size) + ')'
                     # print(name_fold, X_tr.shape, y_tr.shape, X_te.shape, y_te.shape)
                     fold_i += 1
-                    
+
                     # Loop augmentations
                     for augmentation_config in augmentations:
                         name_augmentation, augmentation_pipeline = get_augmentation(augmentation_config)
@@ -423,9 +431,16 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
 
                         # Loop preprocessing
                         for preprocessing in preprocessings:
+                            # print(preprocessing)
+                            # continue
                             name_preprocessing = 'NoPP_'
                             if preprocessing is not None:
-                                name_preprocessing = 'PP_' + str(len(preprocessing))# + "_" + str(hash(frozenset(preprocessing)))[0:5]
+                                if isinstance(preprocessing, tuple):
+                                    name_preprocessing = preprocessing[0]
+                                elif len(preprocessing) == 1:
+                                    name_preprocessing = preprocessing[0][0]
+                                    # if len(preprocessing) == 1:
+                                # name_preprocessing = 'PP_' + str(len(preprocessing))  # + "_" + str(hash(frozenset(preprocessing)))[0:5]
 
                             for model in models:
                                 name_model = model[0].name()
@@ -448,22 +463,22 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                 run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
                                 run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
 
-                                print(run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
+                                print("RUN", run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
 
                                 # print(">"*10, X_tr[0], y_test_pp[0])
                                 cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer)
-                                
+
                                 # joblib.dump(transformer_pipeline, "transformer_pipeline.pkl")
-                                
+
                                 regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc, discretizer=discretizer)
 
                                 binary_prefix = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing])
-                                
+
                                 if isinstance(model[0], regressors.NN_NIRS_Regressor) and len(model) == 3:
                                     weight_config = model[2]
                                     if isinstance(weight_config, str):
                                         regressor.load_weights(weight_config)
-                                        print("loaded weights from", weight_config)
+                                        # print("loaded weights from", weight_config)
                                     elif isinstance(weight_config, bool) and weight_config:
                                         # search for last created weight file that names starts with run_name in results folder
                                         regex = os.path.join("results", desc[0], binary_prefix + '*' + '.h5')
@@ -474,7 +489,10 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                             weight_file = max(weight_files, key=os.path.getctime)
                                             regressor.model = tf.keras.models.load_model(weight_file)
                                             print("loaded weights from", weight_file)
+                                # else:
+                                #     print("No weights to load")
 
+                                # print(model)
                                 transformers = (y_scaler, transformer_pipeline, regressor, model)
                                 y_pred, datasheet = evaluate_pipeline(desc, run_name, data, transformers, target_RMSE, best_current_model, discretizer)
 
@@ -482,7 +500,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                     if run_key not in cv_predictions:
                                         cv_predictions[run_key] = []
                                     cv_predictions[run_key].append({'pred': y_pred, 'RMSE': float(datasheet['RMSE'])})
-                
+
                 if name_cv != "NoCV":
                     for key, val in cv_predictions.items():
                         RMSE_TOT = sum(item['RMSE'] for item in val)
@@ -495,7 +513,6 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                 results = OrderedDict(sorted(results.items(), key=lambda k_v: float(k_v[1]["RMSE"])))
                 with open(results_file, "w") as fp:
                     json.dump(results, fp, indent=4)
-
 
 
 def benchmark_dataset_multiple(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, *, bins=None, resampling=None, resample_size=0):
@@ -551,12 +568,12 @@ def benchmark_dataset_multiple(dataset_list, split_configs, cv_configs, augmenta
                 name_split = 'Spl_' + str(split_config['method']) + "_" + str(hash(frozenset(split_config)))[0:3]
 
             # print("Split >", X_train.shape, y_train.shape, X_test.shape, y_test.shape, X_valid.shape, y_valid.shape)
-            
+
             # Generate training sets
             for cv_config in cv_configs:
                 # print("CV >", cv_config)
 
-                folds = iter([([],[])])
+                folds = iter([([], [])])
                 folds_size = 1
                 name_cv = "NoCV"
                 time_str_cv = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
@@ -567,20 +584,22 @@ def benchmark_dataset_multiple(dataset_list, split_configs, cv_configs, augmenta
                     # folds = cv.split(X_train, y_train)
                     folds_size = cv.get_n_splits()
                     name_cv = "CV_" + str(cv_config['n_splits']) + "_" + str(cv_config['n_repeats'])
-                
+
                 # Loop data
                 fold_i = 1
                 cv_predictions = {}
                 for train_index, test_index in folds:
                     if len(train_index) > 0:
-                        X_tr, y_tr, X_te, y_te = np.array([sub_x[train_index] for sub_x in X_train]), y_train[train_index], np.array([sub_x[test_index] for sub_x in X_train]), y_train[test_index]
+                        X_tr, y_tr, X_te, y_te = np.array(
+                            [sub_x[train_index] for sub_x in X_train]), y_train[train_index], np.array(
+                            [sub_x[test_index] for sub_x in X_train]), y_train[test_index]
                     else:
                         X_tr, y_tr, X_te, y_te = X_train, y_train, X_test, y_test
 
                     name_fold = "Fold_" + str(fold_i) + '(' + str(folds_size) + ')'
                     # print(name_fold, X_tr.shape, y_tr.shape, X_te.shape, y_te.shape)
                     fold_i += 1
-                    
+
                     # Loop augmentations
                     for augmentation_config in augmentations:
                         name_augmentation, augmentation_pipeline = get_augmentation(augmentation_config)
@@ -599,12 +618,12 @@ def benchmark_dataset_multiple(dataset_list, split_configs, cv_configs, augmenta
                             for model in models:
                                 name_model = model[0].name()
                                 if isinstance(model[0], regressors.NN_NIRS_Regressor_Multiple):
-                                    print(name_model, "is Neural Net")
-                                    print("before transform", X_tr.shape, y_tr.shape, X_te.shape, y_te.shape)
+                                    # print(name_model, "is Neural Net")
+                                    # print("before transform", X_tr.shape, y_tr.shape, X_te.shape, y_te.shape)
                                     X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data_multiple(
                                         preprocessing, X_tr, y_tr, X_te, y_te, type="augmentation", classification_mode=classification_mode
                                     )
-                                    print("after transform", X_test_pp.shape, y_test_pp.shape)
+                                    # print("after transform", X_test_pp.shape, y_test_pp.shape)
                                 else:
                                     if classification_mode:
                                         print('Error:', "Can only use classification on neural nets models")
@@ -632,9 +651,8 @@ def benchmark_dataset_multiple(dataset_list, split_configs, cv_configs, augmenta
                                     if run_key not in cv_predictions:
                                         cv_predictions[run_key] = []
                                     cv_predictions[run_key].append({'pred': y_pred, 'RMSE': float(datasheet['RMSE'])})
-                
 
-                ## BUG HERE Folds and validation are mixed
+                # BUG HERE Folds and validation are mixed
                 # if name_cv != "NoCV":
                 #     for key, val in cv_predictions.items():
                 #         RMSE_TOT = sum(item['RMSE'] for item in val)
