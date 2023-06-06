@@ -214,10 +214,9 @@ def _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_n
             assert len(files) == 1, "Cannot initialize %s %s dataset. More than one (%s) file found. Multiple y should be available in the next version." % (dataset_name, key, regex)
 
             csv_list = [load_csv(f) for f in files if f.is_file()]
-            cache[key] = [x[0] for x in csv_list]
-            removed_rows[key] = [x[1] for x in csv_list]
-
-            # cache[key], removed_rows[key] = csv_list[0]
+            # cache[key] = [x[0] for x in csv_list]
+            # removed_rows[key] = [x[1] for x in csv_list]
+            cache[key], removed_rows[key] = csv_list[0]
 
     return cache, removed_rows
 
@@ -263,7 +262,7 @@ def _clean_dataset(cache, x_files_re, y_files_re, removed_rows, dataset_name):
         logging.info("removed_rows: %s", removed_rows)
         # logging.info(removed_rows[x_key], removed_rows[y_key])
         x_removed_rows = [removed_rows[x_key][j] for j in range(len(removed_rows[x_key])) if len(removed_rows[x_key][j]) > 0]
-        y_removed_rows = [removed_rows[y_key][j] for j in range(len(removed_rows[y_key])) if len(removed_rows[y_key][j]) > 0]
+        y_removed_rows = removed_rows[y_key] if len(removed_rows[y_key]) > 0 else []
 
         logging.info("Probing if rows with missing values from %s and %s should be removed.", x_key, y_key)
         logging.info("x_removed_rows: %s", x_removed_rows)
