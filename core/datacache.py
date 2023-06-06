@@ -70,7 +70,6 @@ def get_properties(file_path):
 
     first_line = file.readline().decode('utf-8')
     second_line = file.readline().decode('utf-8')
-    file.close()
 
     header = False
     if re.search(r'[a-df-zA-DF-Z]', first_line):
@@ -79,8 +78,18 @@ def get_properties(file_path):
         header = True
 
     sniffer = csv.Sniffer()
-    dialect = sniffer.sniff(second_line)
+    line_to_sniff = second_line
+    # print("**********", repr(line_to_sniff), "**********")
+    # print(">", repr(line_to_sniff.strip()))
+    # print(re.search(r'[a-df-zA-DF-Z]', line_to_sniff))
+    # print(re.search(r'[0-9]', line_to_sniff))
+    while re.search(r'[a-df-zA-DF-Z]', line_to_sniff) != None or not line_to_sniff.strip() or not re.search(r'[0-9]', line_to_sniff):
+        print("not this one")
+        line_to_sniff = file.readline().decode('utf-8')
+    dialect = sniffer.sniff(line_to_sniff)
     # logging.info(dialect.delimiter)
+
+    file.close()
     return header, dialect.delimiter
 
 
@@ -100,28 +109,30 @@ def load_csv(file_path):
     logging.info("Delimiter inference: %s", delimiter)
     if re.search(r"[0-9\.]", delimiter):
         delimiter = "\n"
-        logging.warning("Delimiter correction: \\n")
+        logging.warning("Delimiter correction for %s: \\n", file_path)
     try:
         if header:
-            data = pd.read_csv(file_path, header=0, na_filter=False, sep=delimiter, engine='python')
+            data = pd.read_csv(file_path, header=0, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False)
         else:
-            data = pd.read_csv(file_path, header=None, na_filter=False, sep=delimiter, engine='python')
+            data = pd.read_csv(file_path, header=None, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False)
     except Exception as e:
         logging.error("Error loading file: %s", file_path)
         logging.error("Exception %s", e)
         logging.error(traceback.format_exc())
         return None
 
+    logging.info("Data shape after read_csv: %s", data.shape)
     data = data.replace(r"^\s*$", "", regex=True)
     data = data.apply(pd.to_numeric, args=("coerce",))
 
     logging.info("Data shape: %s", data.shape)
     data = data.dropna(how='all', axis=1)
     logging.info("Data shape after dropna(all) cols: %s", data.shape)
-    data = data.dropna(how='all', axis=0)
+    # data = data.dropna(how='all', axis=0)
     logging.info("Data shape after dropna(all) rows: %s", data.shape)
 
     na_coords = np.argwhere(pd.isna(data).values)
+    # logging.info("NA coordinates: %s", na_coords)
     na_row_list = []
     if len(na_coords) > 0:
         na_row_list = list(set(na_coords[:, 0]))
@@ -148,7 +159,7 @@ def _prepare_dataset(dataset_config):
     # Prepare loading
     x_files_re = [("X_train", "*Xcal*"), ("X_test", "*Xtest*"), ("X_val", "*Xval*")]
     y_files_re = [("y_train", "*ycal*"), ("y_test", "*ytest*"), ("y_val", "*yval*")]
-
+    y_cols = None
     dataset_dir = None
     if isinstance(dataset_config, str):
         dataset_dir = Path(dataset_config)
@@ -203,7 +214,10 @@ def _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_n
             assert len(files) == 1, "Cannot initialize %s %s dataset. More than one (%s) file found. Multiple y should be available in the next version." % (dataset_name, key, regex)
 
             csv_list = [load_csv(f) for f in files if f.is_file()]
-            cache[key], removed_rows[key] = csv_list[0]
+            cache[key] = [x[0] for x in csv_list]
+            removed_rows[key] = [x[1] for x in csv_list]
+
+            # cache[key], removed_rows[key] = csv_list[0]
 
     return cache, removed_rows
 
@@ -245,6 +259,9 @@ def _clean_dataset(cache, x_files_re, y_files_re, removed_rows, dataset_name):
     """
     for i, (y_key, _) in enumerate(y_files_re):
         x_key = x_files_re[i][0]
+        logging.info("Removing rows with missing values from %s and %s.", x_key, y_key)
+        logging.info("removed_rows: %s", removed_rows)
+        # logging.info(removed_rows[x_key], removed_rows[y_key])
         x_removed_rows = [removed_rows[x_key][j] for j in range(len(removed_rows[x_key])) if len(removed_rows[x_key][j]) > 0]
         y_removed_rows = [removed_rows[y_key][j] for j in range(len(removed_rows[y_key])) if len(removed_rows[y_key][j]) > 0]
 
@@ -304,6 +321,7 @@ def register_dataset(dataset_config):
 
     cache, removed_rows = _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_name)
     logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+    print("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
     # Reconstruct nested Y data ###
     if isinstance(dataset_config, tuple):

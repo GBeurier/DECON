@@ -1,3 +1,4 @@
+import core.datacache as datacache
 import datetime
 import glob
 import json
@@ -260,7 +261,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     current_X_test = X_valid
     global current_y_test
     current_y_test = y_valid
-    print(estimator)
+    # print(estimator)
     estimator.fit(X_train, y_train)
     # save estimator
     # with open("estimator.pkl", "wb") as f:
@@ -285,7 +286,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     folder = os.path.join("results", dataset_name)
     canon_name = folder + "/" + model_name
 
-    print("Saving model to", canon_name)
+    # print("Saving model to", canon_name)
     joblib.dump(transformer_pipeline, canon_name + "_tf.pkl")
     # print(regressor)
     if isinstance(model[0], regressors.NN_NIRS_Regressor):
@@ -296,7 +297,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
 
     joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
 
-    print(datasheet["RMSE"], " (", target_RMSE, "|", best_current_model, ") in", datasheet["training_time"])
+    print(datasheet["RMSE"], " (", target_RMSE, ") in", datasheet["training_time"])  # "|", best_current_model,
     return y_pred, datasheet
 
 
@@ -352,7 +353,15 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
         # Load data
         print("="*10, str(dataset_name).upper(), end=" ")
         print("Loading data...", path)
-        X, y, X_valid, y_valid = load_data(path, resampling, resample_size)
+
+        # X, y, X_valid, y_valid = load_data(path, resampling, resample_size)
+        # print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
+
+        dataset_hash, dataset_name = datacache.register_dataset(path)
+        print("Dataset hash", dataset_hash, dataset_name)
+        cache = datacache.get_data_from_uid(dataset_name, dataset_hash)
+        X, y, X_valid, y_valid = cache["X_train"][0], cache["y_train"], cache["X_val"][0], cache["y_val"]
+
         print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
 
         # Split data
@@ -422,9 +431,16 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
 
                         # Loop preprocessing
                         for preprocessing in preprocessings:
+                            # print(preprocessing)
+                            # continue
                             name_preprocessing = 'NoPP_'
                             if preprocessing is not None:
-                                name_preprocessing = 'PP_' + str(len(preprocessing))  # + "_" + str(hash(frozenset(preprocessing)))[0:5]
+                                if isinstance(preprocessing, tuple):
+                                    name_preprocessing = preprocessing[0]
+                                elif len(preprocessing) == 1:
+                                    name_preprocessing = preprocessing[0][0]
+                                    # if len(preprocessing) == 1:
+                                # name_preprocessing = 'PP_' + str(len(preprocessing))  # + "_" + str(hash(frozenset(preprocessing)))[0:5]
 
                             for model in models:
                                 name_model = model[0].name()
@@ -447,7 +463,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                 run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
                                 run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
 
-                                print(run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
+                                print("RUN", run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
 
                                 # print(">"*10, X_tr[0], y_test_pp[0])
                                 cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer)
@@ -462,7 +478,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                     weight_config = model[2]
                                     if isinstance(weight_config, str):
                                         regressor.load_weights(weight_config)
-                                        print("loaded weights from", weight_config)
+                                        # print("loaded weights from", weight_config)
                                     elif isinstance(weight_config, bool) and weight_config:
                                         # search for last created weight file that names starts with run_name in results folder
                                         regex = os.path.join("results", desc[0], binary_prefix + '*' + '.h5')
@@ -473,10 +489,10 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                             weight_file = max(weight_files, key=os.path.getctime)
                                             regressor.model = tf.keras.models.load_model(weight_file)
                                             print("loaded weights from", weight_file)
-                                else:
-                                    print("No weights to load")
+                                # else:
+                                #     print("No weights to load")
 
-                                print(model)
+                                # print(model)
                                 transformers = (y_scaler, transformer_pipeline, regressor, model)
                                 y_pred, datasheet = evaluate_pipeline(desc, run_name, data, transformers, target_RMSE, best_current_model, discretizer)
 
@@ -602,12 +618,12 @@ def benchmark_dataset_multiple(dataset_list, split_configs, cv_configs, augmenta
                             for model in models:
                                 name_model = model[0].name()
                                 if isinstance(model[0], regressors.NN_NIRS_Regressor_Multiple):
-                                    print(name_model, "is Neural Net")
-                                    print("before transform", X_tr.shape, y_tr.shape, X_te.shape, y_te.shape)
+                                    # print(name_model, "is Neural Net")
+                                    # print("before transform", X_tr.shape, y_tr.shape, X_te.shape, y_te.shape)
                                     X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data_multiple(
                                         preprocessing, X_tr, y_tr, X_te, y_te, type="augmentation", classification_mode=classification_mode
                                     )
-                                    print("after transform", X_test_pp.shape, y_test_pp.shape)
+                                    # print("after transform", X_test_pp.shape, y_test_pp.shape)
                                 else:
                                     if classification_mode:
                                         print('Error:', "Can only use classification on neural nets models")

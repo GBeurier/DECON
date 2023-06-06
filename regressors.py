@@ -1,3 +1,10 @@
+from sklearn.kernel_approximation import RBFSampler
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+from Inception_1DCNN import Inception
+from ResNet_v2_1DCNN import ResNetv2
+from SE_ResNet_1DCNN import SEResNet
+from models.VGG_1DCNN import VGG
 import datetime
 import inspect
 import math
@@ -71,7 +78,7 @@ class Auto_Save_Multiple(Callback):
     def on_epoch_end(self, epoch, logs=None):
         current_loss = logs.get("val_loss")
         lr = self.model.optimizer.learning_rate
-        
+
         print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), " - ", "{:.6f}".format(current_loss), "{:.6f}".format(self.best), " "*10, end="\r")
 
         if np.less(current_loss, self.best):
@@ -84,9 +91,8 @@ class Auto_Save_Multiple(Callback):
                 RMSE = float(res['RMSE'])
                 if RMSE < self.best_unscaled:
                     self.best_unscaled = RMSE
-                    
-            print("Best so far >", self.best_unscaled, self.model_name)
 
+            print("Best so far >", self.best_unscaled, self.model_name)
 
     def on_train_end(self, logs=None):
         # if self.params['verbose'] == 2:
@@ -96,6 +102,7 @@ class Auto_Save_Multiple(Callback):
         with open(self.model_name + "_sum.txt", 'w') as f:
             with redirect_stdout(f):
                 self.model.summary()
+
 
 class Auto_Save(Callback):
     best_weights = []
@@ -212,7 +219,7 @@ class NN_NIRS_Regressor(NIRS_Regressor):
         lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
         weights_path = os.path.join("results", desc[0], run_name)
         auto_save = Auto_Save(weights_path, X_test.shape, cb)
-        callbacks = [auto_save, early_stop, lrScheduler]  #  reduce_lr tensorboard_callback
+        callbacks = [auto_save, early_stop, lrScheduler]  # reduce_lr tensorboard_callback
         model_inst = self.build_model(X_test.shape[1:], params)
 
         if discretizer is not None:
@@ -277,9 +284,6 @@ class Custom_NN(NN_NIRS_Regressor):
 
     def build_model(self, input_shape, params):
         return self.model_
-
-
-from models.VGG_1DCNN import VGG
 
 
 class UNet_NIRS(NN_NIRS_Regressor):
@@ -386,7 +390,7 @@ class UNET(NN_NIRS_Regressor):
         input_layer_1 = AveragePooling1D(5)(input_layer)
         input_layer_2 = AveragePooling1D(25)(input_layer)
 
-        ########## Encoder
+        # Encoder
         x = self.cbr(input_layer, layer_n, kernel_size, 1, 1)  # 1000
         for i in range(depth):
             x = self.resblock(x, layer_n, kernel_size, 1)
@@ -437,10 +441,6 @@ class UNET(NN_NIRS_Regressor):
         model = Model(input_layer, out)
 
         return model
-
-
-from SE_ResNet_1DCNN import SEResNet
-from ResNet_v2_1DCNN import ResNetv2
 
 
 class SEResNet(NN_NIRS_Regressor):
@@ -765,9 +765,6 @@ class Bacon(NN_NIRS_Regressor):
         return model
 
 
-from Inception_1DCNN import Inception
-
-
 class Inception1D(NN_NIRS_Regressor):
     def build_model(self, input_shape, params):
         length = input_shape[1]  # Number of Features (or length of the signal)
@@ -823,7 +820,7 @@ class Decon_SepDep(NN_NIRS_Regressor):
 #             x = BatchNormalization()(x)
 #             model = Model(inputs=input, outputs=x)
 #             start_models.append(model)
-        
+
 #         combined = concatenate([model.output for model in start_models])
 #         x = SeparableConv1D(64, kernel_size=3, depth_multiplier=32, padding="same", activation="relu")(combined)
 #         x = BatchNormalization()(x)
@@ -843,7 +840,7 @@ class Decon_Sep(NN_NIRS_Regressor):
     def build_model(self, input_shape, params):
         model = Sequential()
         model.add(Input(shape=input_shape))
-        model.add(SpatialDropout1D(0.2))        
+        model.add(SpatialDropout1D(0.2))
         model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu"))
         model.add(BatchNormalization())
         model.add(SeparableConv1D(64, kernel_size=3, strides=2, depth_multiplier=32, padding="same", activation="relu"))
@@ -1253,23 +1250,15 @@ class ML_Regressor(NIRS_Regressor):
             params["X_test"] = X_test
         if "y_test" in signature.parameters:
             params["y_test"] = y_test
-            
+
         return self.model_class(**params)
 
     def name(self):
         # if self.name == "":
-        return re.search(".*'(.*)'.*", str(self.model_class)).group(1)
+        return re.search(".*'(.*)'.*", str(self.model_class)).group(1) + "=" + self.name_
         # else:
-            # return self.name
+        # return self.name
 
-
-
-
-from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.cross_decomposition import PLSRegression
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import make_pipeline
-from sklearn.kernel_approximation import RBFSampler
 
 class NonlinearPLSRegressor(BaseEstimator, RegressorMixin):
     def __init__(self, n_components=5, poly_degree=2, gamma=0.1):
@@ -1289,8 +1278,7 @@ class NonlinearPLSRegressor(BaseEstimator, RegressorMixin):
 
     def predict(self, X):
         return self.pipeline.predict(X)
-    
-    
+
 
 # from sklearn.base import BaseEstimator, RegressorMixin
 # from sklearn.utils.validation import check_X_y, check_array
@@ -1300,7 +1288,7 @@ class NonlinearPLSRegressor(BaseEstimator, RegressorMixin):
 #     def __init__(self, n_components=2, weighting='bisquare'):
 #         self.n_components = n_components
 #         self.weighting = weighting
-    
+
 #     def fit(self, X, y):
 #         print(">", y.shape)
 #         if isinstance(y, np.ndarray):
@@ -1308,28 +1296,28 @@ class NonlinearPLSRegressor(BaseEstimator, RegressorMixin):
 #         else:
 #             y = np.array(y).reshape(-1, 1)
 #         print(">", y.shape, X.shape)
-        
+
 #         if len(X.shape) == 1:
 #             X = X.reshape(-1, 1)
 #         # Check that X and y have correct shape
 #         X, y = check_X_y(X, y)
 #         print(">", y.shape, X.shape)
 #         # y = y.reshape(-1, 1)
-        
+
 #         # Store the number of samples and variables
 #         self.n_samples_, self.n_variables_ = X.shape
-        
+
 #         # Initialize the scores and loading vectors
 #         T = np.zeros((self.n_samples_, self.n_components))
 #         W = np.zeros((self.n_variables_, self.n_components))
-        
+
 #         # Center the data
 #         self.x_mean_ = np.mean(X, axis=0)
 #         self.y_mean_ = np.mean(y)
 #         print(">>", self.x_mean_.shape, self.y_mean_)
 #         Xc = X - self.x_mean_
 #         yc = y - self.y_mean_
-        
+
 #         # Iterate over the components
 #         for i in range(self.n_components):
 #             # Initialize the weights for the first component
@@ -1337,60 +1325,57 @@ class NonlinearPLSRegressor(BaseEstimator, RegressorMixin):
 #                 w = Xc.T @ yc
 #             else:
 #                 w = Xc.T @ (yc - T[:, :i] @ np.linalg.pinv(T[:, :i].T @ T[:, :i]) @ T[:, :i].T @ yc)
-            
+
 #             # Normalize the weights
 #             w /= np.linalg.norm(w)
-            
+
 #             # Calculate the scores
 #             t = Xc @ w
-            
+
 #             # Update the loading vectors
 #             W[:, i] = w.ravel()
-            
+
 #             # Deflate the data
 #             p = (Xc.T @ t) / (t.T @ t)
 #             Xc -= t.reshape(-1, 1) @ p.reshape(1, -1)
-        
+
 #         # Calculate the regression coefficients
 #         B = W @ np.linalg.pinv(T.T @ T) @ T.T @ y
-        
+
 #         # Store the coefficients
 #         self.coef_ = B.ravel()
-        
+
 #         return self
-    
+
 #     def predict(self, X):
 #         # Check that X has correct shape
 #         X = check_array(X)
-        
+
 #         # Apply a weighting scheme to the test samples
 #         D = np.sum((X - self.x_mean_)**2, axis=-1)
-        
+
 #         if self.weighting == 'bisquare':
 #             w = (1 - (D / np.max(D))**2)**2
 #         elif self.weighting == 'tricube':
 #             w = (1 - np.abs(D / np.max(D))**3)**3
 #         else:
 #             w = 1 / D
-        
+
 #         # Make predictions for each test sample
 #         y_pred = []
-        
+
 #         for i in range(X.shape[0]):
 #             # Fit a weighted PLS model to the training data using NIPALS algorithm
 #             lwpls = LWPLS(n_components=self.n_components)
 #             lwpls.fit(self.x_mean_, self.y_mean_)
-            
+
 #             # Update the regression coefficients using sample weights
 #             lwpls.coef_ *= w[i]
-            
+
 #             # Make a prediction for the current test sample
 #             y_pred.append(lwpls.predict(X[i].reshape(1, -1)))
-        
+
 #         return np.array(y_pred).ravel()
-
-
-
 
 
 # from sklearn.base import BaseEstimator, RegressorMixin

@@ -21,3 +21,8 @@ run2.txt
 result.csv
 data.7z
 debug.log
+csv.7z
+refset_results.7z
+all_results.json
+bak/
+csv/
