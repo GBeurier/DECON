@@ -185,7 +185,7 @@ def _prepare_dataset(dataset_config):
     """
     # Prepare loading
     x_files_re = [("X_train", "*Xcal*"), ("X_test", "*Xtest*"), ("X_val", "*Xval*")]
-    y_files_re = [("y_train", "*ycal*"), ("y_test", "*ytest*"), ("y_val", "*yval*")]
+    y_files_re = [("y_train", "*Ycal*"), ("y_test", "*Ytest*"), ("y_val", "*Yval*")]
     y_cols = None
     dataset_dir = None
     if isinstance(dataset_config, str):

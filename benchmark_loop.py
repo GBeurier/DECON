@@ -9,6 +9,8 @@ import time
 import os
 from collections import OrderedDict
 
+from scipy import signal
+
 from contextlib import redirect_stdout
 import joblib
 
@@ -297,7 +299,6 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
 
     joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
 
-    print(datasheet["RMSE"], " (", target_RMSE, ") in", datasheet["training_time"])  # "|", best_current_model,
     return y_pred, datasheet
 
 
@@ -351,8 +352,8 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
         desc = (dataset_name, path, results_file, results, SEED)
 
         # Load data
-        print("="*10, str(dataset_name).upper(), end=" ")
-        print("Loading data...", path)
+        print("=" * 10, str(dataset_name).upper(), end=" ")
+        # print("Loading data...", path)
 
         # X, y, X_valid, y_valid = load_data(path, resampling, resample_size)
         # print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
@@ -361,6 +362,18 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
         print("Dataset hash", dataset_hash, dataset_name)
         cache = datacache.get_data_from_uid(dataset_name, dataset_hash)
         X, y, X_valid, y_valid = cache["X_train"][0], cache["y_train"], cache["X_val"][0], cache["y_val"]
+
+        if X.shape[-1] <= 256:
+            new_X = []
+            for x in X:
+                new_X.append(signal.resample(x, 256))
+            X = np.array(new_X)
+
+        if X_valid.shape[-1] <= 256:
+            new_X_valid = []
+            for x in X_valid:
+                new_X_valid.append(signal.resample(x, 256))
+            X_valid = np.array(new_X_valid)
 
         print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
 
@@ -463,8 +476,8 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                 run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
                                 run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
 
-                                print("RUN", run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
-
+                                # print("RUN", run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
+                                # continue
                                 # print(">"*10, X_tr[0], y_test_pp[0])
                                 cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer)
 
@@ -495,7 +508,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                 # print(model)
                                 transformers = (y_scaler, transformer_pipeline, regressor, model)
                                 y_pred, datasheet = evaluate_pipeline(desc, run_name, data, transformers, target_RMSE, best_current_model, discretizer)
-
+                                print(dataset_name, run_name, datasheet["RMSE"], " (", target_RMSE, ") in", datasheet["training_time"])  # "|", best_current_model,
                                 if name_cv != "NoCV":
                                     if run_key not in cv_predictions:
                                         cv_predictions[run_key] = []
@@ -509,7 +522,7 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                         y_pred = np.sum([weights[i]*val[i]['pred'] for i in range(len(val))], axis=0)
                         datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
                         results[key + "_CV"] = datasheet
-
+                print("Finished", dataset_name, "with", len(results), "results")
                 results = OrderedDict(sorted(results.items(), key=lambda k_v: float(k_v[1]["RMSE"])))
                 with open(results_file, "w") as fp:
                     json.dump(results, fp, indent=4)
