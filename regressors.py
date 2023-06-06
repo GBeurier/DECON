@@ -46,8 +46,8 @@ from tensorflow.keras.layers import (
     UpSampling1D,
     Lambda,
 )
-from tensorflow.python.keras.models import Model, Sequential
-from tensorflow.python.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from scikeras.wrappers import KerasRegressor
 
 from keras_self_attention import SeqSelfAttention
