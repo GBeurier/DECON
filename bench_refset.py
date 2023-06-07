@@ -3,13 +3,14 @@ import sys
 import pinard.preprocessing as pp
 import regressors
 import preprocessings
-import logging
+# import # logging
 from pathlib import Path
 from preprocessings import preprocessing_list
 
 from benchmark_loop import benchmark_dataset
 import random
 import tensorflow as tf
+from sklearn.cross_decomposition import PLSRegression
 
 
 def str_to_class(classname):
@@ -144,20 +145,21 @@ def main():
 
     tf.get_logger().setLevel("INFO")
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="'%(name)s - %(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.FileHandler(folder + ".log"),
-            logging.StreamHandler()
-        ]
-    )
+    # logging.basicConfig(
+    # level= logging.INFO,
+    # format="'%(name)s - %(asctime)s [%(levelname)s] %(message)s",
+    # handlers=[
+    # logging.FileHandler(folder + ".log"),
+    # logging.StreamHandler()
+    # ]
+    # )
 
     print("*" * 20, folder, "*" * 20)
     SEED = ord('D') + 31373
     # if models_index == 2:
     #     SEED = -1
-    benchmark_dataset([folder], split_configs, cv_configs, augmentations, preprocessings_list, models[0], SEED)  # , resampling='resample', resample_size=2048) #bins=5)
+    benchmark_dataset([folder], split_configs, cv_configs, augmentations, preprocessings_list, [(regressors.Bacon(), {
+                      'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256})], SEED)
 
 
 if __name__ == "__main__":

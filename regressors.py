@@ -17,12 +17,12 @@ from xgboost import XGBRegressor
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.cross_decomposition import PLSRegression
 import numpy as np
-
+from tensorflow import keras
 
 import tensorflow as tf
 # import tensorflow_addons as tfa
 
-from tensorflow.keras.layers import (
+from keras.layers import (
     Dense,
     Conv1D,
     Activation,
@@ -53,8 +53,8 @@ from tensorflow.keras.layers import (
     UpSampling1D,
     Lambda,
 )
-from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
+from keras.models import Model, Sequential
+from keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from scikeras.wrappers import KerasRegressor
 
 # from keras_self_attention import SeqSelfAttention
