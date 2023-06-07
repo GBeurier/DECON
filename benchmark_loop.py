@@ -331,7 +331,9 @@ def init_log(path):
     return dataset_name, results, global_result_file
 
 
-def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, *, bins=None, resampling=None, resample_size=0, weight_config=False):
+def benchmark_dataset(
+        dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, *, bins=None, resampling=None, resample_size=0, weight_config=False,
+        skip_existing=True):
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
 
@@ -341,6 +343,11 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
     for path in dataset_list:
         # Infos
         dataset_name, results, results_file = init_log(path)
+        previous_results = json.load(open(results_file))
+        previous_models = [k[:-18] for k in previous_results.keys()]
+        # print(previous_models)
+        # return
+
         target_RMSE, best_current_model = "-1", "None"
         if len(results.keys()) > 0:
             best_current_model = list(results.keys())[0]
@@ -457,6 +464,15 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
 
                             for model in models:
                                 name_model = model[0].name()
+                                time_str = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
+                                run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
+                                run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
+
+                                if run_name[:-18] in previous_models:
+                                    continue
+
+                                print("RUN", dataset_name, run_name.split("-")[0], run_name[:-18].split("-")[-2])
+
                                 if isinstance(model[0], regressors.NN_NIRS_Regressor):
                                     # print(name_model, "is Neural Net")
                                     X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
@@ -471,10 +487,6 @@ def benchmark_dataset(dataset_list, split_configs, cv_configs, augmentations, pr
                                     X_test_pp, y_test_pp, transformer_pipeline, y_scaler = transform_test_data(
                                         preprocessing, X_tr, y_tr, X_te, y_te, type="union"
                                     )
-
-                                time_str = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
-                                run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
-                                run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
 
                                 # print("RUN", run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
                                 # continue
