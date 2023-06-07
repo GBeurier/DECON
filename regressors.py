@@ -170,26 +170,32 @@ def scale_fn(x):
     #     return 2**(-0.5) * min(step**(-0.5), (step+1) * warmup_steps**(-1.5))
 
 
-def clr(epoch):
-    # return 0.05
-    cycle_params = {
-        "MIN_LR": 0.0001,
-        "MAX_LR": 0.05,
-        "CYCLE_LENGTH": 256,
-    }
-    MIN_LR, MAX_LR, CYCLE_LENGTH = (
-        cycle_params["MIN_LR"],
-        cycle_params["MAX_LR"],
-        cycle_params["CYCLE_LENGTH"],
-    )
-    initial_learning_rate = MIN_LR
-    maximal_learning_rate = MAX_LR
-    step_size = CYCLE_LENGTH
-    step_as_dtype = float(epoch)
-    cycle = math.floor(1 + step_as_dtype / (2 * step_size))
-    x = abs(step_as_dtype / step_size - 2 * cycle + 1)
-    mode_step = cycle  # if scale_mode == "cycle" else step
-    return initial_learning_rate + (maximal_learning_rate - initial_learning_rate) * max(0, (1 - x)) * scale_fn(mode_step)
+def get_clr(params):
+    min_lr = params.get("min_lr", 0.0001)
+    max_lr = params.get("max_lr", 0.05)
+    cycle_length = params.get("cycle_length", 256)
+
+    def clr(epoch):
+        # return 0.05
+        cycle_params = {
+            "MIN_LR": min_lr,
+            "MAX_LR": max_lr,
+            "CYCLE_LENGTH": cycle_length,
+        }
+        MIN_LR, MAX_LR, CYCLE_LENGTH = (
+            cycle_params["MIN_LR"],
+            cycle_params["MAX_LR"],
+            cycle_params["CYCLE_LENGTH"],
+        )
+        initial_learning_rate = MIN_LR
+        maximal_learning_rate = MAX_LR
+        step_size = CYCLE_LENGTH
+        step_as_dtype = float(epoch)
+        cycle = math.floor(1 + step_as_dtype / (2 * step_size))
+        x = abs(step_as_dtype / step_size - 2 * cycle + 1)
+        mode_step = cycle  # if scale_mode == "cycle" else step
+        return initial_learning_rate + (maximal_learning_rate - initial_learning_rate) * max(0, (1 - x)) * scale_fn(mode_step)
+    return clr
 
 
 class NIRS_Regressor:
@@ -215,8 +221,8 @@ class NN_NIRS_Regressor(NIRS_Regressor):
         early_stop = EarlyStopping(monitor="val_loss", patience=params["patience"], verbose=1, mode="min", min_delta=0)
         # log_dir = os.path.join('logs','fit','run_name', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
-        reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.2, patience=int(params["patience"] / 2), min_lr=0.001)
-        lrScheduler = tf.keras.callbacks.LearningRateScheduler(clr)
+        # reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.2, patience=int(params["patience"] / 2), min_lr=0.001)
+        lrScheduler = tf.keras.callbacks.LearningRateScheduler(get_clr(params))
         weights_path = os.path.join("results", desc[0], run_name)
         auto_save = Auto_Save(weights_path, X_test.shape, cb)
         callbacks = [auto_save, early_stop, lrScheduler]  # reduce_lr tensorboard_callback

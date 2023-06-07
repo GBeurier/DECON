@@ -139,9 +139,9 @@ def load_csv(file_path):
 
     try:
         if header:
-            data = pd.read_csv(file_path, header=0, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False, decimal=nb_delimiter)
+            data = pd.read_csv(file_path, header=0, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False, decimal=nb_delimiter, skipinitialspace=True)
         else:
-            data = pd.read_csv(file_path, header=None, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False, decimal=nb_delimiter)
+            data = pd.read_csv(file_path, header=None, na_filter=False, sep=delimiter, engine='python', skip_blank_lines=False, decimal=nb_delimiter, skipinitialspace=True)
     except Exception as e:
         logging.error("Error loading file: %s", file_path)
         logging.error("Exception %s", e)
