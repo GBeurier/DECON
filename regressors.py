@@ -1,11 +1,11 @@
 from sklearn.kernel_approximation import RBFSampler
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import PolynomialFeatures
+# from sklearn.preprocessing import PolynomialFeatures
 from Inception_1DCNN import Inception
 from ResNet_v2_1DCNN import ResNetv2
 from SE_ResNet_1DCNN import SEResNet
 from models.VGG_1DCNN import VGG
-import datetime
+# import datetime
 import inspect
 import math
 import numpy as np
@@ -13,12 +13,11 @@ import re
 import os
 
 from sklearn.cross_decomposition import PLSRegression
-from xgboost import XGBRegressor
+# from xgboost import XGBRegressor
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.cross_decomposition import PLSRegression
-import numpy as np
-from tensorflow import keras
+# from sklearn.cross_decomposition import PLSRegression
 
+from tensorflow import keras
 import tensorflow as tf
 # import tensorflow_addons as tfa
 
@@ -36,72 +35,32 @@ from keras.layers import (
     Bidirectional,
     MaxPool1D,
     AveragePooling1D,
-    SeparableConv1D,
     Add,
     GlobalAveragePooling1D,
-    GlobalMaxPool1D,
-    Concatenate, concatenate,
+    # GlobalMaxPool1D,
+    Concatenate,
+    # concatenate,
     DepthwiseConv1D,
     Permute,
     MaxPooling1D,
     LayerNormalization,
     MultiHeadAttention,
     SeparableConv1D,
-    ConvLSTM1D,
-    LocallyConnected1D,
+    # ConvLSTM1D,
+    # LocallyConnected1D,
     Multiply,
-    UpSampling1D,
+    # UpSampling1D,
     Lambda,
 )
 from keras.models import Model, Sequential
-from keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
-from scikeras.wrappers import KerasRegressor
+from keras.callbacks import Callback, EarlyStopping  # , ReduceLROnPlateau
+# from scikeras.wrappers import KerasRegressor
 
 # from keras_self_attention import SeqSelfAttention
 
 # from transformers import Transformer
-from lwpls import LWPLS as LWPLS2
+# from lwpls import LWPLS  # as LWPLS2
 from contextlib import redirect_stdout
-
-
-class Auto_Save_Multiple(Callback):
-    best_weights = []
-
-    def __init__(self, model_name, shape, cb_func=None):
-        super(Auto_Save_Multiple, self).__init__()
-        self.model_name = model_name
-        self.shape = shape
-        self.best = np.Inf
-        self.best_unscaled = np.Inf
-        self.cb = cb_func
-
-    def on_epoch_end(self, epoch, logs=None):
-        current_loss = logs.get("val_loss")
-        lr = self.model.optimizer.learning_rate
-
-        print("epoch", str(epoch).zfill(5), "lr", lr.numpy(), " - ", "{:.6f}".format(current_loss), "{:.6f}".format(self.best), " "*10, end="\r")
-
-        if np.less(current_loss, self.best):
-            self.best = current_loss
-            Auto_Save_Multiple.best_weights = self.model.get_weights()
-            self.best_epoch = epoch
-
-            if self.cb is not None:
-                res = self.cb(epoch, self.best)
-                RMSE = float(res['RMSE'])
-                if RMSE < self.best_unscaled:
-                    self.best_unscaled = RMSE
-
-            print("Best so far >", self.best_unscaled, self.model_name)
-
-    def on_train_end(self, logs=None):
-        # if self.params['verbose'] == 2:
-        print("Saved best {0:6.4f} at epoch".format(self.best_unscaled), self.best_epoch)
-        self.model.set_weights(Auto_Save_Multiple.best_weights)
-        self.model.save_weights(self.model_name + ".hdf5")
-        with open(self.model_name + "_sum.txt", 'w') as f:
-            with redirect_stdout(f):
-                self.model.summary()
 
 
 class Auto_Save(Callback):
@@ -136,11 +95,11 @@ class Auto_Save(Callback):
         # if self.params['verbose'] == 2:
         print("Saved best {0:6.4f} at epoch".format(self.best_unscaled), self.best_epoch)
         self.model.set_weights(Auto_Save.best_weights)
-        self.model.save_weights(self.model_name + ".hdf5")
-        self.model.save(self.model_name + ".h5")
-        with open(self.model_name + "_sum.txt", "w") as f:
-            with redirect_stdout(f):
-                self.model.summary()
+        # self.model.save_weights(self.model_name + ".hdf5")
+        # self.model.save(self.model_name + ".h5")
+        # with open(self.model_name + "_sum.txt", "w") as f:
+        #     with redirect_stdout(f):
+        #         self.model.summary()
 
 
 class Print_LR(Callback):
@@ -228,16 +187,6 @@ class NN_NIRS_Regressor(NIRS_Regressor):
         callbacks = [auto_save, early_stop, lrScheduler]  # reduce_lr tensorboard_callback
         model_inst = self.build_model(X_test.shape[1:], params)
 
-        if discretizer is not None:
-            x = model_inst.layers[-2].output
-            x = Dense(discretizer.n_bins, activation="softmax")(x)
-            model_inst = Model(inputs=model_inst.inputs, outputs=x)
-
-        # model_inst.summary()
-
-        # dot_img_file = os.path.join("results", desc[0], run_name + "_model.jpg")
-        # tf.keras.utils.plot_model(model_inst, to_file=dot_img_file, show_shapes=True)
-
         trainableParams = np.sum([np.prod(v.get_shape()) for v in model_inst.trainable_weights])
         nonTrainableParams = np.sum([np.prod(v.get_shape()) for v in model_inst.non_trainable_weights])
         totalParams = trainableParams + nonTrainableParams
@@ -249,38 +198,20 @@ class NN_NIRS_Regressor(NIRS_Regressor):
             ">",
             totalParams,
         )
+        # k_regressor = KerasRegressor(
+        #     model=model_inst,
+        #     loss=tf.keras.losses.categorical_crossentropy,
+        #     metrics=["accuracy"],
+        #     optimizer=params["optimizer"],
+        #     callbacks=callbacks,
+        #     epochs=params["epoch"],
+        #     batch_size=params["batch_size"],
+        #     fit__validation_data=(X_test, y_test),
+        #     fit__shuffle=True,
+        #     verbose=params["verbose"],
+        # )
 
-        if discretizer is None:
-            rmse = tf.keras.metrics.RootMeanSquaredError()
-            k_regressor = KerasRegressor(
-                model=model_inst,
-                loss="mse",
-                metrics=[rmse],
-                optimizer=tf.keras.optimizers.Adam(),
-                callbacks=callbacks,
-                epochs=params["epoch"],
-                batch_size=params["batch_size"],
-                fit__validation_data=(X_test, y_test),
-                fit__shuffle=True,
-                verbose=params["verbose"],
-            )
-        else:
-            # scc = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-
-            k_regressor = KerasRegressor(
-                model=model_inst,
-                loss=tf.keras.losses.categorical_crossentropy,
-                metrics=["accuracy"],
-                optimizer=params["optimizer"],
-                callbacks=callbacks,
-                epochs=params["epoch"],
-                batch_size=params["batch_size"],
-                fit__validation_data=(X_test, y_test),
-                fit__shuffle=True,
-                verbose=params["verbose"],
-            )
-
-        return k_regressor
+        return model_inst, callbacks
 
 
 class Custom_NN(NN_NIRS_Regressor):
@@ -400,18 +331,18 @@ class UNET(NN_NIRS_Regressor):
         x = self.cbr(input_layer, layer_n, kernel_size, 1, 1)  # 1000
         for i in range(depth):
             x = self.resblock(x, layer_n, kernel_size, 1)
-        out_0 = x
+        # out_0 = x
 
         x = self.cbr(x, layer_n * 2, kernel_size, 5, 1)
         for i in range(depth):
             x = self.resblock(x, layer_n * 2, kernel_size, 1)
-        out_1 = x
+        # out_1 = x
 
         x = Concatenate()([x, input_layer_1])
         x = self.cbr(x, layer_n * 3, kernel_size, 5, 1)
         for i in range(depth):
             x = self.resblock(x, layer_n * 3, kernel_size, 1)
-        out_2 = x
+        # out_2 = x
 
         x = Concatenate()([x, input_layer_2])
         x = self.cbr(x, layer_n * 4, kernel_size, 5, 1)
@@ -449,7 +380,7 @@ class UNET(NN_NIRS_Regressor):
         return model
 
 
-class SEResNet(NN_NIRS_Regressor):
+class SEResNet1d_s(NN_NIRS_Regressor):
     def build_model(self, input_shape, params):
         # Configurations
         length = input_shape[0]
