@@ -57,7 +57,7 @@ from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from scikeras.wrappers import KerasRegressor
 
-from keras_self_attention import SeqSelfAttention
+# from keras_self_attention import SeqSelfAttention
 
 # from transformers import Transformer
 from lwpls import LWPLS as LWPLS2
@@ -235,8 +235,8 @@ class NN_NIRS_Regressor(NIRS_Regressor):
 
         # model_inst.summary()
 
-        dot_img_file = os.path.join("results", desc[0], run_name + "_model.jpg")
-        tf.keras.utils.plot_model(model_inst, to_file=dot_img_file, show_shapes=True)
+        # dot_img_file = os.path.join("results", desc[0], run_name + "_model.jpg")
+        # tf.keras.utils.plot_model(model_inst, to_file=dot_img_file, show_shapes=True)
 
         trainableParams = np.sum([np.prod(v.get_shape()) for v in model_inst.trainable_weights])
         nonTrainableParams = np.sum([np.prod(v.get_shape()) for v in model_inst.non_trainable_weights])
@@ -256,7 +256,7 @@ class NN_NIRS_Regressor(NIRS_Regressor):
                 model=model_inst,
                 loss="mse",
                 metrics=[rmse],
-                optimizer=params["optimizer"],
+                optimizer=tf.keras.optimizers.Adam(),
                 callbacks=callbacks,
                 epochs=params["epoch"],
                 batch_size=params["batch_size"],
@@ -1021,7 +1021,7 @@ class Transformer_NIRS(NN_NIRS_Regressor):
         x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
         x = Dropout(dropout)(x)
         x = LayerNormalization(epsilon=1e-6)(x)
-        inputs = tf.cast(inputs, tf.float16)
+        # inputs = tf.cast(inputs, tf.float16)
         res = x + inputs
 
         # Feed Forward Part
@@ -1029,7 +1029,7 @@ class Transformer_NIRS(NN_NIRS_Regressor):
         x = Dropout(dropout)(x)
         x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
         x = LayerNormalization(epsilon=1e-6)(x)
-        res = tf.cast(res, tf.float16)
+        # res = tf.cast(res, tf.float16)
         return x + res
 
     def build_model(self, input_shape, params):
@@ -1064,7 +1064,7 @@ class Abstract_Transformer(NN_NIRS_Regressor):
         # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
         # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
         # Attention and Normalization
-        inputs = tf.cast(inputs, tf.float16)
+        # inputs = tf.cast(inputs, tf.float16)
         x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
         x = LayerNormalization(epsilon=1e-6)(x)
         x = Dropout(dropout)(x)
@@ -1075,7 +1075,7 @@ class Abstract_Transformer(NN_NIRS_Regressor):
         x = Dropout(dropout)(x)
         x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
         x = LayerNormalization(epsilon=1e-6)(x)
-        res = tf.cast(res, tf.float16)
+        # res = tf.cast(res, tf.float16)
         return x + res
 
     def transformer_model(

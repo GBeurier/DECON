@@ -1,3 +1,11 @@
+import os.path
+import sys
+from xgboost import XGBRegressor
+from sklearn.cross_decomposition import PLSRegression
+from pinard import augmentation, model_selection
+import pinard.preprocessing as pp
+import regressors
+import preprocessings
 from pathlib import Path
 from preprocessings import preprocessing_list
 
@@ -17,21 +25,10 @@ SEED = ord('D') + 31373
 # tf.config.experimental.enable_op_determinism()
 
 
-import preprocessings
-import regressors
-import pinard.preprocessing as pp
-from pinard import augmentation, model_selection
-from sklearn.cross_decomposition import PLSRegression
-from xgboost import XGBRegressor
-import sys
-import os.path
-
 def str_to_class(classname):
     return getattr(sys.modules['pinard.preprocessing'], classname)
 
 # print(str_to_class('SavitzkyGolay'))
-
-
 
 
 def get_dataset_list(path):
@@ -43,6 +40,7 @@ def get_dataset_list(path):
                 # if len(datasets) < 3:
                 datasets.append(str(path))
     return datasets
+
 
 split_configs = [
     None,
@@ -71,7 +69,6 @@ preprocessings_list = [
 ]
 
 
-
 cv_configs = [
     None,
     # {'n_splits':5, 'n_repeats':4},
@@ -94,7 +91,7 @@ for c in cv_configs:
 
 models = [
     # (regressors.ML_Regressor(XGBRegressor), {"n_estimators":200, "max_depth":50, "seed":SEED}),
-    (regressors.ML_Regressor(PLSRegression), {"n_components":80}),
+    (regressors.ML_Regressor(PLSRegression), {"n_components": 80}),
     # (regressors.Transformer_VG(), {'batch_size':50, 'epoch':10000, 'verbose':0, 'patience':250, 'optimizer':'adam', 'loss':'mse'}),
     # (regressors.Transformer(), {'batch_size':10, 'epoch':300, 'verbose':0, 'patience':30, 'optimizer':'Adam', 'loss':'mse'}),
     # (regressors.Decon_SepPo(), {'batch_size':50, 'epoch':10000, 'verbose':0, 'patience':1000, 'optimizer':'adam', 'loss':'mse'}),
@@ -109,7 +106,7 @@ models = [
 
 
 # for i in range(4, 80, 2):
-    # models.append((regressors.ML_Regressor(PLSRegression), {"n_components": i}))
+# models.append((regressors.ML_Regressor(PLSRegression), {"n_components": i}))
 
 benchmark_size = len(folders) * len(split_configs) * len_cv_configs * len(augmentations) * len(preprocessings_list) * len(models)
 print("Benchmarking", benchmark_size, "runs.")

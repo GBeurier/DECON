@@ -363,13 +363,14 @@ def register_dataset(dataset_config):
 
     # Put data in DATACACHE
     cache_hash = data_hash([cache[key] for key in sorted(cache.keys())])
+    logging.info("cache hash: %s", cache_hash)
     cache["path"] = str(dataset_dir)
     cache["origin"] = None
 
     DATACACHE[dataset_name] = {}
     DATACACHE[dataset_name][cache_hash] = cache
 
-    return cache_hash, dataset_name
+    return cache_hash, dataset_name, cache
 
 
 def get_data_from_uid(dataset, uid):

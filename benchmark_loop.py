@@ -8,7 +8,8 @@ from pathlib import Path
 import time
 import os
 from collections import OrderedDict
-
+import random
+import logging
 from scipy import signal
 
 from contextlib import redirect_stdout
@@ -121,9 +122,10 @@ current_path = None
 current_y_scaler = None
 
 
-def get_callback_predict(dataset_name, model_name, path, SEED, target_RMSE, best_current_model, discretizer):
+def get_callback_predict(dataset_name, model_name, path, SEED, target_RMSE, best_current_model, discretizer, *, model_type):
 
     def callback_predict(epoch, val_loss):
+        global current_estimator
         if current_estimator is None:
             return
 
@@ -131,13 +133,13 @@ def get_callback_predict(dataset_name, model_name, path, SEED, target_RMSE, best
         if discretizer is not None:
             y_pred = discretizer.inverse_transform(y_pred)
 
-        # print("*"*10, current_X_test.shape, current_y_test.shape, y_pred.shape)
+        print("*"*10, current_X_test.shape, current_y_test.shape, y_pred.shape)
 
         res = get_datasheet("", "", current_path, -1, current_y_test, y_pred)
         print("Epoch:", epoch, "> RMSE:", res["RMSE"], " (", target_RMSE, "|", best_current_model, ") - R²:", res["R2"], " val_loss", val_loss)
 
         if float(res["RMSE"]) / 1.1 < float(target_RMSE):
-            log_run(dataset_name, model_name, path, SEED, current_y_test, y_pred, 0)
+            log_run(dataset_name, model_name, path, SEED, current_y_test, y_pred, 0, model_type)
 
         return res
 
@@ -224,7 +226,7 @@ def evaluate_pipeline_multiple(desc, model_name, data, transformers, target_RMSE
     if discretizer is not None:
         y_pred = discretizer.inverse_transform(y_pred)
     elapsed_time = time.time() - start_time
-    datasheet = log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time)
+    datasheet = log_run(dataset_name, model_name, path, SEED, y_valid, y_pred, elapsed_time, "")
 
     datasheet["training_time"] = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
     results[model_name] = datasheet
@@ -263,7 +265,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     current_X_test = X_valid
     global current_y_test
     current_y_test = y_valid
-    # print(estimator)
+    print(estimator)
     estimator.fit(X_train, y_train)
     # save estimator
     # with open("estimator.pkl", "wb") as f:
@@ -288,16 +290,16 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     folder = os.path.join("results", dataset_name)
     canon_name = folder + "/" + model_name
 
-    # print("Saving model to", canon_name)
-    joblib.dump(transformer_pipeline, canon_name + "_tf.pkl")
-    # print(regressor)
-    if isinstance(model[0], regressors.NN_NIRS_Regressor):
-        # regressor.model_.save(canon_name + ".h5")
-        pass
-    else:
-        joblib.dump(estimator.regressor_[1], canon_name + "_reg.pkl")
+    # # print("Saving model to", canon_name)
+    # joblib.dump(transformer_pipeline, canon_name + "_tf.pkl")
+    # # print(regressor)
+    # if isinstance(model[0], regressors.NN_NIRS_Regressor):
+    #     # regressor.model_.save(canon_name + ".h5")
+    #     pass
+    # else:
+    #     joblib.dump(estimator.regressor_[1], canon_name + "_reg.pkl")
 
-    joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
+    # joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
 
     return y_pred, datasheet
 
@@ -334,17 +336,25 @@ def init_log(path):
 def benchmark_dataset(
         dataset_list, split_configs, cv_configs, augmentations, preprocessings, models, SEED, *, bins=None, resampling=None, resample_size=0, weight_config=False,
         skip_existing=True):
+
+    if SEED == -1:
+        SEED = np.random.randint(0, 10000)
+
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
+    random.seed(SEED, version=2)
 
     classification_mode = False if bins is None else True
     name_classif = "" if classification_mode is False else '_Cl' + str(bins) + '_'
 
     for path in dataset_list:
         # Infos
+        logging.info("Dataset: " + path)
         dataset_name, results, results_file = init_log(path)
-        previous_results = json.load(open(results_file))
-        previous_models = [k[:-18] for k in previous_results.keys()]
+        previous_models = []
+        if os.path.exists(results_file) and skip_existing:
+            previous_results = json.load(open(results_file))
+            previous_models = [k[:-18] for k in previous_results.keys()]
         # print(previous_models)
         # return
 
@@ -357,6 +367,7 @@ def benchmark_dataset(
         if not os.path.isdir(folder):
             os.makedirs(folder)
         desc = (dataset_name, path, results_file, results, SEED)
+        logging.info("Dataset: %s, %s, %s, %s, %s" % desc)
 
         # Load data
         print("=" * 10, str(dataset_name).upper(), end=" ")
@@ -365,9 +376,9 @@ def benchmark_dataset(
         # X, y, X_valid, y_valid = load_data(path, resampling, resample_size)
         # print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
 
-        dataset_hash, dataset_name = datacache.register_dataset(path)
-        print("Dataset hash", dataset_hash, dataset_name)
-        cache = datacache.get_data_from_uid(dataset_name, dataset_hash)
+        dataset_hash, dataset_name, cache = datacache.register_dataset(path)
+        # print("Dataset hash", dataset_hash, dataset_name)
+        # cache = datacache.get_data_from_uid(dataset_name, dataset_hash)
         X, y, X_valid, y_valid = cache["X_train"][0], cache["y_train"], cache["X_val"][0], cache["y_val"]
 
         if X.shape[-1] <= 256:
@@ -382,8 +393,8 @@ def benchmark_dataset(
                 new_X_valid.append(signal.resample(x, 256))
             X_valid = np.array(new_X_valid)
 
-        print("="*10, X.shape, y.shape, X_valid.shape, y_valid.shape)
-
+        print("=" * 10, X.shape, y.shape, X_valid.shape, y_valid.shape)
+        logging.info("=" * 10 + str(X.shape) + str(y.shape) + str(X_valid.shape) + str(y_valid.shape))
         # Split data
         for split_config in split_configs:
             # print("Split >", split_config)
@@ -461,13 +472,19 @@ def benchmark_dataset(
                                     name_preprocessing = preprocessing[0][0]
                                     # if len(preprocessing) == 1:
                                 # name_preprocessing = 'PP_' + str(len(preprocessing))  # + "_" + str(hash(frozenset(preprocessing)))[0:5]
-
+                            logging.info("Preprocessing " + name_preprocessing)
                             for model in models:
+                                if SEED == -1:
+                                    SEED = np.random.randint(0, 10000)
+                                    np.random.seed(SEED)
+                                    tf.random.set_seed(SEED)
+                                    random.seed(SEED, version=2)
+
                                 name_model = model[0].name()
                                 time_str = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
                                 run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
                                 run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
-
+                                logging.info("RUN " + run_name)
                                 if run_name[:-18] in previous_models:
                                     continue
 
@@ -491,29 +508,32 @@ def benchmark_dataset(
                                 # print("RUN", run_name, X_tr.shape, y_tr.shape, X_test_pp.shape, y_test_pp.shape)
                                 # continue
                                 # print(">"*10, X_tr[0], y_test_pp[0])
-                                cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer)
+                                model_type = "ML"
+                                if isinstance(model[0], regressors.NN_NIRS_Regressor):
+                                    model_type = "NN"
+                                cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer, model_type=model_type)
 
                                 # joblib.dump(transformer_pipeline, "transformer_pipeline.pkl")
-
+                                # logging.info("Starting training", str(X_tr.shape), str(y_tr.shape), str(X_test_pp.shape), str(y_test_pp.shape))
                                 regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc, discretizer=discretizer)
 
                                 binary_prefix = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing])
 
-                                if isinstance(model[0], regressors.NN_NIRS_Regressor) and len(model) == 3:
-                                    weight_config = model[2]
-                                    if isinstance(weight_config, str):
-                                        regressor.load_weights(weight_config)
-                                        # print("loaded weights from", weight_config)
-                                    elif isinstance(weight_config, bool) and weight_config:
-                                        # search for last created weight file that names starts with run_name in results folder
-                                        regex = os.path.join("results", desc[0], binary_prefix + '*' + '.h5')
-                                        weight_files = glob.glob(regex)
-                                        if len(weight_files) == 0:
-                                            print("No weight file found for", binary_prefix)
-                                        else:
-                                            weight_file = max(weight_files, key=os.path.getctime)
-                                            regressor.model = tf.keras.models.load_model(weight_file)
-                                            print("loaded weights from", weight_file)
+                                # if isinstance(model[0], regressors.NN_NIRS_Regressor) and len(model) == 3:
+                                #     weight_config = model[2]
+                                #     if isinstance(weight_config, str):
+                                #         regressor.load_weights(weight_config)
+                                #         # print("loaded weights from", weight_config)
+                                #     elif isinstance(weight_config, bool) and weight_config:
+                                #         # search for last created weight file that names starts with run_name in results folder
+                                #         regex = os.path.join("results", desc[0], binary_prefix + '*' + '.h5')
+                                #         weight_files = glob.glob(regex)
+                                #         if len(weight_files) == 0:
+                                #             print("No weight file found for", binary_prefix)
+                                #         else:
+                                #             weight_file = max(weight_files, key=os.path.getctime)
+                                #             regressor.model = tf.keras.models.load_model(weight_file)
+                                #             print("loaded weights from", weight_file)
                                 # else:
                                 #     print("No weights to load")
 
@@ -526,15 +546,16 @@ def benchmark_dataset(
                                         cv_predictions[run_key] = []
                                     cv_predictions[run_key].append({'pred': y_pred, 'RMSE': float(datasheet['RMSE'])})
 
-                if name_cv != "NoCV":
-                    for key, val in cv_predictions.items():
-                        RMSE_TOT = sum(item['RMSE'] for item in val)
-                        factor = 1. / (len(val) - 1)
-                        weights = [factor * (RMSE_TOT - item['RMSE']) / RMSE_TOT for item in val]
-                        y_pred = np.sum([weights[i]*val[i]['pred'] for i in range(len(val))], axis=0)
-                        datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
-                        results[key + "_CV"] = datasheet
+                # if name_cv != "NoCV":
+                #     for key, val in cv_predictions.items():
+                #         RMSE_TOT = sum(item['RMSE'] for item in val)
+                #         factor = 1. / (len(val) - 1)
+                #         weights = [factor * (RMSE_TOT - item['RMSE']) / RMSE_TOT for item in val]
+                #         y_pred = np.sum([weights[i]*val[i]['pred'] for i in range(len(val))], axis=0)
+                #         datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
+                #         results[key + "_CV"] = datasheet
                 print("Finished", dataset_name, "with", len(results), "results")
+                logging.info("Finished", dataset_name, "with", len(results), "results")
                 results = OrderedDict(sorted(results.items(), key=lambda k_v: float(k_v[1]["RMSE"])))
                 with open(results_file, "w") as fp:
                     json.dump(results, fp, indent=4)

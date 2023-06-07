@@ -8,11 +8,8 @@ from pathlib import Path
 from preprocessings import preprocessing_list
 
 from benchmark_loop import benchmark_dataset
-
+import random
 import tensorflow as tf
-
-
-SEED = ord('D') + 31373
 
 
 def str_to_class(classname):
@@ -76,35 +73,35 @@ for c in cv_configs:
         len_cv_configs += (c['n_splits'] * c['n_repeats'])
 
 models = [
-    (regressors.Decon_Sep(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.Bacon(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.Transformer(), {'batch_size': 30, 'epoch': 300, 'verbose': 0, 'patience': 30,
-     'optimizer': 'Adam', 'loss': 'mse', "min_lr": 1e-5, "max_lr": 1e-2, "cycle_length": 32}),
-    (regressors.Transformer_LongRange(), {'batch_size': 30, 'epoch': 300, 'verbose': 0, 'patience': 30,
-     'optimizer': 'Adam', 'loss': 'mse', "min_lr": 1e-5, "max_lr": 1e-2, "cycle_length": 32}),
-    (regressors.Decon(), {'batch_size': 100, 'epoch': 20000, 'verbose': 0, 'patience': 400,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.MLP(), {'batch_size': 1000, 'epoch': 20000, 'verbose': 0, 'patience': 2000,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.ResNetV2(), {'batch_size': 200, 'epoch': 20000, 'verbose': 0, 'patience': 300,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.CONV_LSTM(), {'batch_size': 1000, 'epoch': 20000, 'verbose': 0, 'patience': 2000,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.XCeption1D(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.Inception1D(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.ResNetV2(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.UNET(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.UNet_NIRS(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
-    (regressors.FFT_Conv(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000,
-     'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+    [
+        (regressors.Decon(), {'batch_size': 100, 'epoch': 20000, 'verbose': 0, 'patience': 400, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Transformer(), {'batch_size': 30, 'epoch': 300, 'verbose': 0, 'patience': 30, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-5, "max_lr": 1e-2, "cycle_length": 32}),
+        (regressors.Transformer_LongRange(), {'batch_size': 30, 'epoch': 300, 'verbose': 0, 'patience': 30, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-5, "max_lr": 1e-2, "cycle_length": 32}),
+        (regressors.MLP(), {'batch_size': 1000, 'epoch': 20000, 'verbose': 0, 'patience': 2000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.FFT_Conv(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.CONV_LSTM(), {'batch_size': 1000, 'epoch': 20000, 'verbose': 0, 'patience': 2000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+    ],
+    [
+        (regressors.XCeption1D(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Inception1D(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.ResNetV2(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.UNET(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.UNet_NIRS(), {'batch_size': 500, 'epoch': 10000, 'verbose': 0, 'patience': 1200, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+    ],
+    [
+        (regressors.Decon_Sep(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Decon_Sep(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Decon_Sep(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Decon_Sep(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Decon(), {'batch_size': 100, 'epoch': 20000, 'verbose': 0, 'patience': 400, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Decon(), {'batch_size': 100, 'epoch': 20000, 'verbose': 0, 'patience': 400, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Bacon(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+        (regressors.Bacon(), {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+    ]
 ]
+
+# (regressors.ResNetV2(), {'batch_size': 200, 'epoch': 20000, 'verbose': 0, 'patience': 300,
+#  'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
 
 
 # from lwpls import LWPLS
@@ -139,25 +136,28 @@ models = [
 def main():
     # Read the folder path parameter
     folder = sys.argv[1]
-    output_path = sys.argv[2]
+    # models_index = int(sys.argv[2])
     print(f"Processing folder: {folder}")
 
     benchmark_size = len(split_configs) * len_cv_configs * len(augmentations) * len(preprocessings_list) * len(models)
     print("Benchmarking", benchmark_size, "runs.")
 
-    tf.get_logger().setLevel("ERROR")
+    tf.get_logger().setLevel("INFO")
 
     logging.basicConfig(
         level=logging.INFO,
         format="'%(name)s - %(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler(os.path.join(output_path, "debug.log")),
-            # logging.StreamHandler()
+            logging.FileHandler(folder + ".log"),
+            logging.StreamHandler()
         ]
     )
 
     print("*" * 20, folder, "*" * 20)
-    benchmark_dataset([folder], split_configs, cv_configs, augmentations, preprocessings_list, models, SEED)  # , resampling='resample', resample_size=2048) #bins=5)
+    SEED = ord('D') + 31373
+    # if models_index == 2:
+    #     SEED = -1
+    benchmark_dataset([folder], split_configs, cv_configs, augmentations, preprocessings_list, models[0], SEED)  # , resampling='resample', resample_size=2048) #bins=5)
 
 
 if __name__ == "__main__":

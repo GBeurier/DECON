@@ -1,0 +1,24 @@
+'root - 2023-06-07 18:10:35,831 [INFO] Dataset: data
+'root - 2023-06-07 18:10:35,879 [INFO] Dataset: data, data, results/data_results.json, {}, 31441
+'root - 2023-06-07 18:10:35,885 [INFO] Registering dataset: data
+'root - 2023-06-07 18:10:35,896 [WARNING] No y file y_train - *Ycal* found for data.
+'root - 2023-06-07 18:10:35,937 [WARNING] No y file y_test - *Ytest* found for data.
+'root - 2023-06-07 18:10:35,982 [WARNING] No y file y_val - *Yval* found for data.
+'root - 2023-06-07 18:10:35,991 [INFO] cache state: {"X_train": [0], "X_test": [0], "X_val": [0], "y_train": null, "y_test": null, "y_val": null}
+'root - 2023-06-07 18:10:36,029 [INFO] Removing rows with missing values from X_train and y_train.
+'root - 2023-06-07 18:10:36,121 [INFO] removed_rows: {'X_train': [], 'X_test': [], 'X_val': [], 'y_train': [], 'y_test': [], 'y_val': []}
+'root - 2023-06-07 18:10:36,144 [INFO] Probing if rows with missing values from X_train and y_train should be removed.
+'root - 2023-06-07 18:10:36,147 [INFO] x_removed_rows: []
+'root - 2023-06-07 18:10:36,147 [INFO] y_removed_rows: []
+'root - 2023-06-07 18:10:36,148 [INFO] Removing rows with missing values from X_test and y_test.
+'root - 2023-06-07 18:10:36,148 [INFO] removed_rows: {'X_train': [], 'X_test': [], 'X_val': [], 'y_train': [], 'y_test': [], 'y_val': []}
+'root - 2023-06-07 18:10:36,148 [INFO] Probing if rows with missing values from X_test and y_test should be removed.
+'root - 2023-06-07 18:10:36,148 [INFO] x_removed_rows: []
+'root - 2023-06-07 18:10:36,148 [INFO] y_removed_rows: []
+'root - 2023-06-07 18:10:36,149 [INFO] Removing rows with missing values from X_val and y_val.
+'root - 2023-06-07 18:10:36,149 [INFO] removed_rows: {'X_train': [], 'X_test': [], 'X_val': [], 'y_train': [], 'y_test': [], 'y_val': []}
+'root - 2023-06-07 18:10:36,149 [INFO] Probing if rows with missing values from X_val and y_val should be removed.
+'root - 2023-06-07 18:10:36,149 [INFO] x_removed_rows: []
+'root - 2023-06-07 18:10:36,149 [INFO] y_removed_rows: []
+'root - 2023-06-07 18:10:36,150 [INFO] cache state: {"X_train": [0], "X_test": [0], "X_val": [0], "y_train": null, "y_test": null, "y_val": null}
+'root - 2023-06-07 18:10:36,150 [INFO] cache hash: 546a3282d5d64a4a
