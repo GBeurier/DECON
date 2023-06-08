@@ -9,7 +9,7 @@ import time
 import os
 from collections import OrderedDict
 import random
-# import # logging
+import logging
 from scipy import signal
 
 from contextlib import redirect_stdout
@@ -265,7 +265,7 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     current_X_test = X_valid
     global current_y_test
     current_y_test = y_valid
-    print(estimator)
+    # print(estimator)
     estimator.fit(X_train, y_train)
     # save estimator
     # with open("estimator.pkl", "wb") as f:
@@ -293,13 +293,13 @@ def evaluate_pipeline(desc, model_name, data, transformers, target_RMSE, best_cu
     # print("Saving model to", canon_name)
     joblib.dump(transformer_pipeline, canon_name + "_tf.pkl")
     # print(regressor)
-    if isinstance(model[0], regressors.NN_NIRS_Regressor):
-        regressor.model_.save(canon_name + ".h5")
-        pass
-    else:
-        joblib.dump(estimator.regressor_[1], canon_name + "_reg.pkl")
+    # if isinstance(model[0], regressors.NN_NIRS_Regressor):
+    #     regressor.model_.save(canon_name + ".h5")
+    #     pass
+    # else:
+    #     joblib.dump(estimator.regressor_[1], canon_name + "_reg.pkl")
 
-    joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
+    # joblib.dump(y_scaler, canon_name + "y_scaler.pkl")
 
     return y_pred, datasheet
 
@@ -349,7 +349,7 @@ def benchmark_dataset(
 
     for path in dataset_list:
         # Infos
-        # logging.info("Dataset: " + path)
+        logging.info("Dataset: " + path)
         dataset_name, results, results_file = init_log(path)
         previous_models = []
         if os.path.exists(results_file) and skip_existing:
@@ -367,7 +367,7 @@ def benchmark_dataset(
         if not os.path.isdir(folder):
             os.makedirs(folder)
         desc = (dataset_name, path, results_file, results, SEED)
-        # logging.info("Dataset: %s, %s, %s, %s, %s" % desc)
+        logging.info("Dataset: %s, %s, %s, %s" % (dataset_name, path, results_file, SEED))
 
         # Load data
         print("=" * 10, str(dataset_name).upper(), end=" ")
@@ -393,8 +393,20 @@ def benchmark_dataset(
                 new_X_valid.append(signal.resample(x, 256))
             X_valid = np.array(new_X_valid)
 
+        if X.shape[-1] > 4000:
+            new_X = []
+            for x in X:
+                new_X.append(signal.resample(x, 2048))
+            X = np.array(new_X)
+
+        if X_valid.shape[-1] > 4000:
+            new_X_valid = []
+            for x in X_valid:
+                new_X_valid.append(signal.resample(x, 2048))
+            X_valid = np.array(new_X_valid)
+
         print("=" * 10, X.shape, y.shape, X_valid.shape, y_valid.shape)
-        # logging.info("=" * 10 + str(X.shape) + str(y.shape) + str(X_valid.shape) + str(y_valid.shape))
+        logging.info("=" * 10 + str(X.shape) + str(y.shape) + str(X_valid.shape) + str(y_valid.shape))
         # Split data
         for split_config in split_configs:
             # print("Split >", split_config)
@@ -472,7 +484,7 @@ def benchmark_dataset(
                                     name_preprocessing = preprocessing[0][0]
                                     # if len(preprocessing) == 1:
                                 # name_preprocessing = 'PP_' + str(len(preprocessing))  # + "_" + str(hash(frozenset(preprocessing)))[0:5]
-                            # logging.info("Preprocessing " + name_preprocessing)
+                            logging.info("Preprocessing " + name_preprocessing)
                             for model in models:
                                 if SEED == -1:
                                     SEED = np.random.randint(0, 10000)
@@ -484,9 +496,10 @@ def benchmark_dataset(
                                 time_str = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
                                 run_name = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing, str(SEED), time_str])
                                 run_key = "-".join([name_model, name_classif, name_split, name_cv, name_augmentation, name_preprocessing, str(SEED), time_str_cv])
-                                # logging.info("RUN " + run_name)
                                 if run_name[:-18] in previous_models:
+                                    # print("but already done")
                                     continue
+                                logging.info("RUN " + run_name)
 
                                 print("RUN", dataset_name, run_name.split("-")[0], run_name[:-18].split("-")[-2])
 
@@ -514,7 +527,7 @@ def benchmark_dataset(
                                 cb_predict = get_callback_predict(dataset_name, name_model, path, SEED, target_RMSE, best_current_model, discretizer, model_type=model_type)
 
                                 # joblib.dump(transformer_pipeline, "transformer_pipeline.pkl")
-                                # logging.info("Starting training" + str(X_tr.shape) + str(y_tr.shape) + str(X_test_pp.shape) + str(y_test_pp.shape))
+                                logging.info("Starting training" + str(X_tr.shape) + str(y_tr.shape) + str(X_test_pp.shape) + str(y_test_pp.shape))
                                 regressor = model[0].model(X_tr, y_tr, X_test_pp, y_test_pp, run_name=run_name, cb=cb_predict, params=model[1], desc=desc, discretizer=discretizer)
 
                                 binary_prefix = "-".join([name_model, name_classif, name_split, name_cv, name_fold, name_augmentation, name_preprocessing])
@@ -555,7 +568,7 @@ def benchmark_dataset(
                 #         datasheet = get_datasheet(dataset_name, key, path, SEED, y_valid, y_pred)
                 #         results[key + "_CV"] = datasheet
                 print("Finished", dataset_name, "with", len(results), "results")
-                # logging.info("Finished", dataset_name, "with", len(results), "results")
+                logging.info("Finished", dataset_name, "with", len(results), "results")
                 results = OrderedDict(sorted(results.items(), key=lambda k_v: float(k_v[1]["RMSE"])))
                 with open(results_file, "w") as fp:
                     json.dump(results, fp, indent=4)

@@ -2,7 +2,7 @@ import csv
 from functools import reduce
 import gzip
 import json
-# import # logging
+import logging
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -94,9 +94,9 @@ def get_properties(file_path):
                 try:
                     v = float(v)
                 except Exception as e:
-                    # logging.error("Error while converting to float: %s", v)
-                    # logging.error(e)
-                    # logging.error(traceback.format_exc())
+                    logging.error("Error while converting to float: %s", v)
+                    logging.error(e)
+                    logging.error(traceback.format_exc())
                     print(e)
                     print(traceback.format_exc())
                 if v < s:
@@ -114,12 +114,12 @@ def get_properties(file_path):
     if "," in line_to_sniff and dialect.delimiter != ",":
         number_delimiter = ","
     delimiter = dialect.delimiter
-    # logging.info("Header inference: %s", header)
-    # logging.info("Delimiter inference: %s", delimiter)
-    # logging.info("Number delimiter inference: %s", number_delimiter)
+    logging.info("Header inference: %s", header)
+    logging.info("Delimiter inference: %s", delimiter)
+    logging.info("Number delimiter inference: %s", number_delimiter)
     if re.search(r"[0-9\.]", delimiter):
         delimiter = " "
-        # logging.warning("Delimiter correction for %s: \\n", file_path)
+        logging.warning("Delimiter correction for %s: \\n", file_path)
 
     file.close()
     return header, delimiter, number_delimiter
@@ -134,7 +134,7 @@ def load_csv(file_path):
     :return: a tuple containing the loaded data as a numpy array and a list of row indices that contain
     missing values.
     """
-    # logging.info("Loading file: %s", file_path)
+    logging.info("Loading file: %s", file_path)
     # print("loading file", file_path)
     data = None
     header, delimiter, nb_delimiter = get_properties(file_path)
@@ -147,32 +147,32 @@ def load_csv(file_path):
     except Exception as e:
         print(e)
         print(traceback.format_exc())
-        # logging.error("Error loading file: %s", file_path)
-        # logging.error("Exception %s", e)
-        # logging.error(traceback.format_exc())
+        logging.error("Error loading file: %s", file_path)
+        logging.error("Exception %s", e)
+        logging.error(traceback.format_exc())
         return None
 
-    # logging.info("Data shape after read_csv: %s", data.shape)
+    logging.info("Data shape after read_csv: %s", data.shape)
     data = data.replace(r"^\s*$", "", regex=True)
     data = data.apply(pd.to_numeric, args=("coerce",))
 
-    # logging.info("Data shape: %s", data.shape)
+    logging.info("Data shape: %s", data.shape)
     data = data.dropna(how='all', axis=1)
-    # logging.info("Data shape after dropna(all) cols: %s", data.shape)
+    logging.info("Data shape after dropna(all) cols: %s", data.shape)
     # data = data.dropna(how='all', axis=0)
-    # logging.info("Data shape after dropna(all) rows: %s", data.shape)
+    logging.info("Data shape after dropna(all) rows: %s", data.shape)
 
     na_coords = np.argwhere(pd.isna(data).values)
-    # # logging.info("NA coordinates: %s", na_coords)
+    # logging.info("NA coordinates: %s", na_coords)
     na_row_list = []
     if len(na_coords) > 0:
         na_row_list = list(set(na_coords[:, 0]))
-        # logging.info("Rows to remove after filtering: %s", na_row_list)
+        logging.info("Rows to remove after filtering: %s", na_row_list)
         # data = data.dropna(how='any', axis=0)
-        # # logging.info("Data shape after dropna(any) rows:", data.shape)
+        # logging.info("Data shape after dropna(any) rows:", data.shape)
 
     data = data.astype(np.float32).values
-    # logging.info("data_sample:\n%s", data[:2, :2])
+    logging.info("data_sample:\n%s", data[:2, :2])
 
     return data, na_row_list
 
@@ -204,7 +204,7 @@ def _prepare_dataset(dataset_config):
             x_files_re = [("X_train", str(dataset_dir))]
 
     if not dataset_dir.exists():
-        # logging.error("Path does not exist: %s", path)
+        logging.error("Path does not exist: %s", path)
         return None, None, None
 
     return dataset_dir, x_files_re, y_files_re, y_cols
@@ -240,7 +240,7 @@ def _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_n
             files = list(dataset_dir.glob(regex))
 
             if len(files) == 0:
-                # logging.warning("No y file %s - %s found for %s.", key, regex, dataset_name)
+                logging.warning("No y file %s - %s found for %s.", key, regex, dataset_name)
                 continue
             assert len(files) == 1, "Cannot initialize %s %s dataset. More than one (%s) file found. Multiple y should be available in the next version." % (dataset_name, key, regex)
 
@@ -263,7 +263,7 @@ def _build_y_data(cache, x_files_re, y_files_re, y_cols, dataset_name):
     :param dataset_name: The name of the dataset being processed
     """
     assert len(cache["X_train"]) == 1, "Cannot initialize %s %s columns. More than one X_train file found." % (y_cols, dataset_name)
-    # logging.info("Getting y cols %s from X for %s.", y_cols, dataset_name)
+    logging.info("Getting y cols %s from X for %s.", y_cols, dataset_name)
 
     for i, (y_key, _) in enumerate(y_files_re):
         x_key = x_files_re[i][0]
@@ -272,7 +272,7 @@ def _build_y_data(cache, x_files_re, y_files_re, y_cols, dataset_name):
             cache[x_key] = [np.delete(cache[x_key][0], y_cols, axis=1)]
         else:
             print("Unable to init %s %s, no %s data found." % (dataset_name, y_key, x_key))
-            # logging.warning("Unable to init %s %s, no %s data found.", dataset_name, y_key, x_key)
+            logging.warning("Unable to init %s %s, no %s data found.", dataset_name, y_key, x_key)
 
 
 def _clean_dataset(cache, x_files_re, y_files_re, removed_rows, dataset_name):
@@ -290,21 +290,21 @@ def _clean_dataset(cache, x_files_re, y_files_re, removed_rows, dataset_name):
     """
     for i, (y_key, _) in enumerate(y_files_re):
         x_key = x_files_re[i][0]
-        # logging.info("Removing rows with missing values from %s and %s.", x_key, y_key)
-        # logging.info("removed_rows: %s", removed_rows)
-        # # logging.info(removed_rows[x_key], removed_rows[y_key])
+        logging.info("Removing rows with missing values from %s and %s.", x_key, y_key)
+        logging.info("removed_rows: %s", removed_rows)
+        # logging.info(removed_rows[x_key], removed_rows[y_key])
         x_removed_rows = [removed_rows[x_key][j] for j in range(len(removed_rows[x_key])) if len(removed_rows[x_key][j]) > 0]
         y_removed_rows = removed_rows[y_key] if len(removed_rows[y_key]) > 0 else []
 
-        # logging.info("Probing if rows with missing values from %s and %s should be removed.", x_key, y_key)
-        # logging.info("x_removed_rows: %s", x_removed_rows)
-        # logging.info("y_removed_rows: %s", y_removed_rows)
+        logging.info("Probing if rows with missing values from %s and %s should be removed.", x_key, y_key)
+        logging.info("x_removed_rows: %s", x_removed_rows)
+        logging.info("y_removed_rows: %s", y_removed_rows)
 
         if len(x_removed_rows) > 0 or len(y_removed_rows) > 0:
             indexes_to_remove = np.array(reduce(np.union1d, (x_removed_rows + y_removed_rows))).astype(np.int32)
 
-            # logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
-            # logging.warning("Removing rows: %s in %s %s", indexes_to_remove, dataset_name, x_key)
+            logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+            logging.warning("Removing rows: %s in %s %s", indexes_to_remove, dataset_name, x_key)
 
             for k, dataset in enumerate(cache[x_key]):
                 cache[x_key][k] = list(np.delete(np.array(dataset), indexes_to_remove, axis=0))
@@ -346,29 +346,29 @@ def register_dataset(dataset_config):
     :return: a tuple containing the cache hash and the dataset name.
     """
 
-    # logging.info("Registering dataset: %s", dataset_config)
+    logging.info("Registering dataset: %s", dataset_config)
     dataset_dir, x_files_re, y_files_re, y_cols = _prepare_dataset(dataset_config)
     dataset_name = dataset_dir.name
 
     cache, removed_rows = _load_dataset(dataset_dir, x_files_re, y_files_re, dataset_config, dataset_name)
-    # logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
     # print("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
     # Reconstruct nested Y data ###
     if isinstance(dataset_config, tuple):
         _build_y_data(cache, x_files_re, y_files_re, y_cols, dataset_name)
-        # logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+        logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
     # Remove rows with missing values
     _clean_dataset(cache, x_files_re, y_files_re, removed_rows, dataset_name)
-    # logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
+    logging.info("cache state: %s", json.dumps({k: np.array(v).shape if v is not None else None for k, v in cache.items()}))
 
     # check if cache X and y are consistent
     _validate_dataset(cache, x_files_re, y_files_re, dataset_name)
 
     # Put data in DATACACHE
     cache_hash = data_hash([cache[key] for key in sorted(cache.keys())])
-    # logging.info("cache hash: %s", cache_hash)
+    logging.info("cache hash: %s", cache_hash)
     cache["path"] = str(dataset_dir)
     cache["origin"] = None
 

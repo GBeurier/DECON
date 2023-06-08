@@ -1064,7 +1064,7 @@ class Abstract_Transformer(NN_NIRS_Regressor):
         # x = Conv1D(filters=64, kernel_size=15, strides=15, activation='relu')(x)
         # x = Conv1D(filters=8, kernel_size=15, strides=15, activation='relu')(x)
         # Attention and Normalization
-        # inputs = tf.cast(inputs, tf.float16)
+        inputs = tf.cast(inputs, tf.float16)
         x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(inputs, inputs)
         x = LayerNormalization(epsilon=1e-6)(x)
         x = Dropout(dropout)(x)
@@ -1075,7 +1075,7 @@ class Abstract_Transformer(NN_NIRS_Regressor):
         x = Dropout(dropout)(x)
         x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
         x = LayerNormalization(epsilon=1e-6)(x)
-        # res = tf.cast(res, tf.float16)
+        res = tf.cast(res, tf.float16)
         return x + res
 
     def transformer_model(
@@ -1196,9 +1196,9 @@ class Transformer_LongRange(Abstract_Transformer):
             input_shape,
             head_size=512,
             num_heads=8,
-            ff_dim=8,
-            num_transformer_blocks=2,
-            mlp_units=[8],
+            ff_dim=4,
+            num_transformer_blocks=3,
+            mlp_units=[64, 16, 8],
             dropout=0.05,
             mlp_dropout=0.1,
         )
@@ -1276,7 +1276,7 @@ class NonlinearPLSRegressor(BaseEstimator, RegressorMixin):
     def fit(self, X, y):
         self.pipeline = make_pipeline(
             # PolynomialFeatures(degree=self.poly_degree),
-            RBFSampler(gamma=self.gamma, n_components=8),
+            RBFSampler(gamma=self.gamma, n_components=self.poly_degree),
             PLSRegression(n_components=self.n_components)
         )
         self.pipeline.fit(X, y)

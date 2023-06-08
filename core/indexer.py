@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-# import # logging
+import logging
 import core.datacache as datacache
 
 
@@ -10,7 +10,7 @@ def index(configs, pre_indexation_step, dataset_uid, dataset_name):
             continue
 
         name, indexer_class, config, params = config
-        # logging.info("Indexing %s with %s", dataset_name, name)
+        logging.info("Indexing %s with %s", dataset_name, name)
         indexer = indexer_class(name, config)
 
         preprocessed_data = None

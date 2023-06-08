@@ -28,3 +28,5 @@ all_results.json
 bak/
 csv/
 results_/
+*result*/
+*results*
