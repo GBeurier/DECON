@@ -1,16 +1,38 @@
+import numpy as np
+import math
+from sklearn.preprocessing import MinMaxScaler
+# from pinard import augmentation, sklearn, model_selection
+# from preprocessings import transform_test_data
+from pinard.sklearn import FeatureAugmentation
+from pinard import preprocessing as pp
+from sklearn.pipeline import Pipeline
+# from sklearn.preprocessing import KBinsDiscretizer
+# from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
+import core.datacache as datacache
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Conv1D, Flatten, Dropout, Input, SpatialDropout1D, SeparableConv1D, BatchNormalization, MaxPool1D, Flatten
+from tensorflow.keras.callbacks import EarlyStopping, Callback, LearningRateScheduler  # , ReduceLROnPlateau
 import os.path
 import sys
 import pinard.preprocessing as pp
 import regressors
 import preprocessings
-# import # logging
-from pathlib import Path
 from preprocessings import preprocessing_list
-
 from benchmark_loop import benchmark_dataset
-import random
-import tensorflow as tf
-from sklearn.cross_decomposition import PLSRegression
+from pathlib import Path
+# import random
+# import tensorflow as tf
+# import traceback
+from sklearn.metrics import (
+    mean_absolute_error,
+    mean_squared_error,
+    mean_absolute_percentage_error,
+    r2_score,
+    explained_variance_score,
+    median_absolute_error,
+)
+import json
 
 
 def str_to_class(classname):
@@ -68,7 +90,7 @@ cv_configs = [
 
 len_cv_configs = 0
 for c in cv_configs:
-    if c == None:
+    if c is None:
         len_cv_configs += 1
     else:
         len_cv_configs += (c['n_splits'] * c['n_repeats'])
@@ -101,79 +123,148 @@ models = [
     ]
 ]
 
-# (regressors.ResNetV2(), {'batch_size': 200, 'epoch': 20000, 'verbose': 0, 'patience': 300,
-#  'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}),
+
+# from data import load_data, load_data_multiple
+
+def scale_fn(x):
+    # return 1. ** x
+    return 1 / (2.0 ** (x - 1))
 
 
-# from lwpls import LWPLS
-# from regressors import NonlinearPLSRegressor
+def get_clr(params):
+    min_lr = params.get("min_lr", 0.0001)
+    max_lr = params.get("max_lr", 0.05)
+    cycle_length = params.get("cycle_length", 256)
 
-# for i in range(5,150,5):
-#     models. append(
-#         (regressors.ML_Regressor(NonlinearPLSRegressor, name=f"NL_RBF_PLS_{i}"), {"n_components":i, "poly_degree":2, "gamma":0.1})
-#     )
-#     models. append(
-#         (regressors.ML_Regressor(PLSRegression, name=f"PLS_{i}"), {"n_components":i})
-#     )
+    def clr(epoch):
+        # return 0.05
+        cycle_params = {
+            "MIN_LR": min_lr,
+            "MAX_LR": max_lr,
+            "CYCLE_LENGTH": cycle_length,
+        }
+        MIN_LR, MAX_LR, CYCLE_LENGTH = (
+            cycle_params["MIN_LR"],
+            cycle_params["MAX_LR"],
+            cycle_params["CYCLE_LENGTH"],
+        )
+        initial_learning_rate = MIN_LR
+        maximal_learning_rate = MAX_LR
+        step_size = CYCLE_LENGTH
+        step_as_dtype = float(epoch)
+        cycle = math.floor(1 + step_as_dtype / (2 * step_size))
+        x = abs(step_as_dtype / step_size - 2 * cycle + 1)
+        mode_step = cycle  # if scale_mode == "cycle" else step
+        return initial_learning_rate + (maximal_learning_rate - initial_learning_rate) * max(0, (1 - x)) * scale_fn(mode_step)
+    return clr
 
-# models.append(
-#     (regressors.ML_Regressor(LWPLS, name=f"LWPLS_0-05_45"), {"max_component_number":45, "lambda_in_similarity":0.05})
-# )
 
-# for i in range(10,100,50):
-#     models.append(
-#         (regressors.ML_Regressor(LWPLS, name=f"LWPLS_0-1_{i}"), {"max_component_number":i, "lambda_in_similarity":0.05})
-#     )
-# models.append(
-#     (regressors.ML_Regressor(LWPLS, name=f"LWPLS_0-5_{i}"), {"max_component_number":i, "lambda_in_similarity":0.5})
-# )
-# models.append( (regressors.ML_Regressor(PLSRegression, name=f"PLS_5"), {"n_components":5}) )
-# for i in range(1,20,1):
-#     models.append( (regressors.ML_Regressor(PLSRegression, name=f"PLS_{i}"), {"n_components":i}) )
-# for i in range(21,120,3):
-#     models.append( (regressors.ML_Regressor(PLSRegression, name=f"PLS_{i}"), {"n_components":i}) )
+class Auto_Save(Callback):
+    best_weights = []
+
+    def __init__(self, model_name, shape, cb_func=None):
+        super(Auto_Save, self).__init__()
+        self.model_name = model_name
+        self.shape = shape
+        self.best = np.Inf
+        self.cb = cb_func
+
+    def on_epoch_end(self, epoch, logs=None):
+        current_loss = logs.get("val_loss")
+        if np.less(current_loss, self.best):
+            self.best = current_loss
+            Auto_Save.best_weights = self.model.get_weights()
+            self.best_epoch = epoch
+            print("Best so far >", self.best, self.model_name)
+
+    def on_train_end(self, logs=None):
+        self.model.set_weights(Auto_Save.best_weights)
+        # self.model.save_weights(self.model_name + ".hdf5")
+        self.model.save(self.model_name + ".h5")
+        print(self.model.summary())
+
+
+def process_data(X, y, X_valid, y_valid, preprocessing):
+    y_scaler = MinMaxScaler()
+    y_scaler.fit(y.reshape((-1, 1)))
+    y_train = y_scaler.transform(y.reshape((-1, 1)))
+    y_test = y_scaler.transform(y_valid.reshape((-1, 1)))
+
+    transformer_pipeline = Pipeline([
+        ("scaler", MinMaxScaler()),
+        ("preprocessing", FeatureAugmentation(preprocessing)),
+    ])
+
+    transformer_pipeline.fit(X)
+    X_train = transformer_pipeline.transform(X)
+    X_test = transformer_pipeline.transform(X_valid)
+
+    return X_train, y_train, X_test, y_test, y_scaler, transformer_pipeline
 
 
 def main():
-    # Read the folder path parameter
     folder = sys.argv[1]
-    # models_index = int(sys.argv[2])
+    dataset_name = sys.argv[1]
     print(f"Processing folder: {folder}")
 
-    benchmark_size = len(split_configs) * len_cv_configs * len(augmentations) * len(preprocessings_list) * len(models)
-    print("Benchmarking", benchmark_size, "runs.")
+    dataset_hash, dataset_name, cache = datacache.register_dataset(folder)
+    X, y, X_valid, y_valid = cache["X_train"][0], cache["y_train"], cache["X_val"][0], cache["y_val"]
+    X_train, y_train, X_test, y_test, y_scaler, transformer_pipeline = process_data(X, y, X_valid, y_valid, preprocessings.decon_set())
+    print(X_train.shape, y_train.shape, X_test.shape, y_test.shape)
 
-    tf.get_logger().setLevel("INFO")
+    model_config = {'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256}
+    model = Sequential()
+    model.add(Input(shape=X_train.shape[1:]))
+    model.add(Flatten())
+    model.add(Dropout(0.2))
+    model.add(Dense(units=2048, activation="relu"))
+    model.add(Dense(units=1024, activation="relu"))
+    model.add(Dense(units=512, activation="relu"))
+    model.add(Dropout(0.25))
+    model.add(Dense(units=256, activation="relu"))
+    model.add(Dense(units=512, activation="relu"))
+    model.add(Dense(units=1024, activation="relu"))
+    model.add(Dropout(0.25))
+    model.add(Dense(units=256, activation="relu"))
+    model.add(Dense(units=128, activation="relu"))
+    model.add(Dense(units=64, activation="relu"))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=32, activation="relu"))
+    model.add(Dense(units=16, activation="sigmoid"))
+    model.add(Dense(units=1, activation="sigmoid"))
+    model.compile(optimizer="adam", loss="mse", metrics=["mse", "mae"])
 
-    # logging.basicConfig(
-    # level= logging.INFO,
-    # format="'%(name)s - %(asctime)s [%(levelname)s] %(message)s",
-    # handlers=[
-    # logging.FileHandler(folder + ".log"),
-    # logging.StreamHandler()
-    # ]
-    # )
+    trainableParams = np.sum([np.prod(v.get_shape()) for v in model.trainable_weights])
+    nonTrainableParams = np.sum([np.prod(v.get_shape()) for v in model.non_trainable_weights])
+    totalParams = trainableParams + nonTrainableParams
+    print("--- Trainable:", trainableParams, "- untrainable:", nonTrainableParams, ">", totalParams,)
 
-    print("*" * 20, folder, "*" * 20)
-    SEED = ord('D') + 31373
-    # if models_index == 2:
-    #     SEED = -1
-    benchmark_dataset([folder], split_configs, cv_configs, augmentations, preprocessings_list, [(regressors.Bacon(), {
-                      'batch_size': 500, 'epoch': 20000, 'verbose': 0, 'patience': 1000, 'optimizer': 'adam', 'loss': 'mse', "min_lr": 1e-6, "max_lr": 1e-3, "cycle_length": 256})], SEED)
+    auto_save = Auto_Save("weights.h5", X_valid.shape)
+    early_stop = EarlyStopping(monitor="val_loss", patience=model_config["patience"], verbose=1, mode="min", min_delta=0)
+    lrScheduler = LearningRateScheduler(get_clr(model_config))
+    model.fit(X_train, y_train, batch_size=model_config['batch_size'], epochs=model_config['epoch'], verbose=0, validation_data=(X_test, y_test), callbacks=[auto_save, early_stop, lrScheduler])
+
+    y_pred = model.predict(X_test)
+    y_pred = y_scaler.inverse_transform(y_pred.reshape((1, -1)))
+    y_pred = y_pred.reshape((-1,))
+
+    print(y_pred.shape, y_valid.shape)
+    datasheet = {
+        "dataset": dataset_name,
+        "RMSE": str(mean_squared_error(y_valid, y_pred, squared=False)),
+        "MAPE": str(mean_absolute_percentage_error(y_valid, y_pred)),
+        "R2": str(r2_score(y_valid, y_pred)),
+        "MAE": str(mean_absolute_error(y_valid, y_pred)),
+        "MSE": str(mean_squared_error(y_valid, y_pred, squared=True)),
+        "MedAE": str(median_absolute_error(y_valid, y_pred)),
+        "EVS": str(explained_variance_score(y_valid, y_pred)),
+    }
+
+    print(json.dumps(datasheet, indent=4))
+    with open(f"/lus/home/PERSO/grp_dcros/dcros/scratch/gbeurier/{dataset_name}_sheet.json", "w") as f:
+        json.dump(datasheet, f, indent=4)
+    np.savetxt(f"/lus/home/PERSO/grp_dcros/dcros/scratch/gbeurier/{dataset_name}_ypred.csv", y_pred, delimiter=";")
 
 
 if __name__ == "__main__":
     main()
-
-
-# for folder in folders:
-
-
-# benchmark_dataset(folders, split_configs, cv_configs, augmentations, preprocessings_list, models, SEED, resampling='crop', resample_size=2150)
-
-
-# for folder in folder_list:
-    # # print(ord(str(folder)[17]), ord('A'), ord('M'))
-    # if ord(str(folder)[16]) < ord("L") or ord(str(folder)[16]) > ord("M"):
-    #     continue
-    # benchmark_dataset(folder, SEED, preprocessing_list(), 20, augment=False)

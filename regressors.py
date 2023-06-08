@@ -95,11 +95,11 @@ class Auto_Save(Callback):
         # if self.params['verbose'] == 2:
         print("Saved best {0:6.4f} at epoch".format(self.best_unscaled), self.best_epoch)
         self.model.set_weights(Auto_Save.best_weights)
-        # self.model.save_weights(self.model_name + ".hdf5")
-        # self.model.save(self.model_name + ".h5")
-        # with open(self.model_name + "_sum.txt", "w") as f:
-        #     with redirect_stdout(f):
-        #         self.model.summary()
+        self.model.save_weights(self.model_name + ".hdf5")
+        self.model.save(self.model_name + ".h5")
+        with open(self.model_name + "_sum.txt", "w") as f:
+            with redirect_stdout(f):
+                self.model.summary()
 
 
 class Print_LR(Callback):
@@ -677,6 +677,24 @@ class MLP(NN_NIRS_Regressor):
         model.add(Dense(units=1024, activation="relu"))
         model.add(Dense(units=128, activation="relu"))
         model.add(Dense(units=8, activation="relu"))
+        model.add(Dense(units=1, activation="sigmoid"))
+        # we compile the model with the custom Adam optimizer
+        # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
+        return model
+
+
+class Massive_MLP(NN_NIRS_Regressor):
+    def build_model(self, input_shape, params):
+        model = Sequential()
+        model.add(Input(shape=input_shape))
+        model.add(Dropout(0.2))
+        model.add(Dense(units=1024, activation="relu"))
+        model.add(Dense(units=512, activation="relu"))
+        model.add(Dense(units=128, activation="relu"))
+        model.add(Dense(units=1024, activation="relu"))
+        model.add(Dense(units=128, activation="relu"))
+        model.add(Dense(units=32, activation="relu"))
+        model.add(Dense(units=8, activation="sigmoid"))
         model.add(Dense(units=1, activation="sigmoid"))
         # we compile the model with the custom Adam optimizer
         # model.compile(loss='mean_squared_error', metrics=['mse'], optimizer="adam")
